@@ -18,7 +18,7 @@ on:
                 options:
                   - 'INT'
                   - 'QA'
-                  
+
 # Define environment variables that can be used in the workflow. 
 env:
     REPO_NAME: ${{ github.event.inputs.repo_name }}
@@ -56,6 +56,39 @@ jobs:
             - name: Show Solution Name Output
               run: |
                 echo "Solution name set as output: ${{ steps.get_solution_name.outputs.solutionName }}"
+
+    NuGet_Restore:
+        runs-on: self-hosted
+        needs: [Checkout_Target_Repo]
+        steps:
+            - name: Restore NuGet packages (.NET Core)
+              if: ${{ github.event.inputs.repo_name == 'CoreLearner' }}
+              run: |
+                cd ${{ env.REPO_NAME }}
+                dotnet restore
+
+            - name: Restore NuGet packages (.NET Framework)
+              if: ${{ github.event.inputs.repo_name == 'DemoNotCore' }}
+              run: |
+                cd ${{ env.REPO_NAME }}
+                nuget restore ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }}
+
+    Build:
+        runs-on: self-hosted
+        needs: [Checkout_Target_Repo, NuGet_Restore]
+        steps:
+            - name: Build the solution (.NET Core)
+              if: ${{ github.event.inputs.repo_name == 'CoreLearner' }}
+              run: |
+                cd ${{ env.REPO_NAME }}
+                dotnet build --configuration Release
+
+            - name: Build the solution (.NET Framework)
+              if: ${{ github.event.inputs.repo_name == 'DemoNotCore' }}
+              run: |
+                cd ${{ env.REPO_NAME }}
+                msbuild ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }} /p:Configuration=Release /p:Platform="${{ env.PLATFORM }}"
+
     
     Clean_Up:
         runs-on: self-hosted
