@@ -1,0 +1,107 @@
+name: Build/Deploy
+
+on:
+    workflow_dispatch:
+        inputs:
+            repo_name:
+                description: 'Name of the Repository'
+                required: true
+            environment:
+                description: 'Environment to build'
+                required: true
+# Define environment variables that can be used in the workflow. 
+env:
+    REPO_NAME: ${{ github.event.inputs.repo_name }}
+    REPO_URL: "https://zyousaf31@github.com/ZeeLearning/${{ github.event.inputs.repo_name }}.git"
+    WORKSPACE_DIRECTORY: ${{ github.workspace }}
+    PLATFORM: 'Any CPU'
+
+jobs:
+    Checkout_Target_Repo:
+        runs-on: self-hosted
+        environment: ${{ github.event.inputs.environment }}
+        # Set the output for the solution name
+        outputs:
+            SOLUTION_NAME: ${{ steps.get_solution_name.outputs.solutionName }}
+        steps:
+            # Checkout the target repo
+            - name: Check out the target repo 
+              run: |
+                git clone --branch ${{ vars.BRANCH }} ${{ env.REPO_URL}} ${{ env.REPO_NAME }}
+                cd ${{ env.REPO_NAME }}
+                echo "Cloned repository: ${{ env.REPO_NAME }} (branch: ${{ vars.BRANCH }})"
+                git branch 
+                echo ${{ env.WORKSPACE_DIRECTORY }}
+            
+            # Get solution file name 
+            - name: Get solution file name
+              id: get_solution_name
+              run: |
+                cd ${{ env.REPO_NAME }}
+                $solution = Get-ChildItem -Path . -Filter *.sln -Recurse
+                $solutionName = $solution.Name
+                echo "Solution file name: $solutionName"
+                echo "solutionName=$solutionName" >> $env:GITHUB_OUTPUT
+
+            - name: Show Solution Name Output
+              run: |
+                echo "Solution name set as output: ${{ steps.get_solution_name.outputs.solutionName }}"
+    
+    NuGet_Restore:
+        runs-on: self-hosted
+        needs: Checkout_Target_Repo
+        env:
+          SOLUTION_NAME: ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }}
+        steps:
+            # Install NuGet
+            - name: Install NuGet 
+              uses: NuGet/setup-nuget@v1
+            
+            # Clear NuGet cache
+            - name: Clear NuGet Cache
+              run: nuget locals all -clear
+            
+            # Setup NuGet source 
+            - name: Setup NuGet Source 
+              run: | 
+                    if (-not (nuget sources list | Select-String -Pattern "UL NuGet")) {
+                        nuget source add -name "UL NuGet" -source "https://hounuget01.eduneering.com/LocalNuGet/nuget" -username ${{ secrets.NUGET_USER }} -password ${{ secrets.NUGET_PASSWORD }}
+                    } else {
+                        Write-Output "NuGet source 'UL NuGet' already exists."
+                    }
+
+            - name: Debug Solution Name
+              run: |
+                echo "Solution Name in NuGet_Restore: ${{ env.SOLUTION_NAME }}"
+
+            # Restore NuGet packages
+            - name: Restore NuGet Packages
+              run: nuget restore ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} -source "UL NuGet"          
+    
+    Build_Solution:
+        runs-on: self-hosted   
+        environment: ${{ github.event.inputs.environment }}
+        needs: [Checkout_Target_Repo, NuGet_Restore]
+        env:
+          SOLUTION_NAME: ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }}
+        steps:   
+            # Install MSBuild 
+            - name: Install MSBuild 
+              uses: microsoft/setup-msbuild@v1
+
+            # Build the solution
+            - name: Build the solution
+              run: |
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/WebAPI" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
+  
+    Clean_Up:
+        runs-on: self-hosted
+        needs: [Checkout_Target_Repo, NuGet_Restore, Build_Solution]
+        steps:
+            # Clean the target repo
+            - name: Clean the target repo
+              run: |
+                cd ${{ env.WORKSPACE_DIRECTORY }}
+                Remove-Item -Recurse -Force ${{ env.REPO_NAME }}
+                echo "Cleaned up the target repo"# Empty workflow file 
