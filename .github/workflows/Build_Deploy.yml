@@ -85,7 +85,7 @@ jobs:
               if: ${{ github.event.inputs.repo_name == 'CoreLearner' }}
               run: |
                 cd ${{ env.REPO_NAME }}
-                dotnet build --configuration ${{ vars.configuration}}
+                dotnet build --configuration ${{ vars.CONFIGURATION}}
                 echo "Configuration - ${{ vars.CONFIGURATION }}"
 
             - name: Build the solution (.NET Framework)
