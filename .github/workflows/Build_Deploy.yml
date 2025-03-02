@@ -60,39 +60,44 @@ jobs:
     NuGet_Restore:
         runs-on: self-hosted
         needs: [Checkout_Target_Repo]
+        environment: ${{ github.event.inputs.environment }}
         steps:
             - name: Restore NuGet packages (.NET Core)
               if: ${{ github.event.inputs.repo_name == 'CoreLearner' }}
               run: |
                 cd ${{ env.REPO_NAME }}
                 dotnet restore
+                echo "Configuration - ${{ vars.CONFIGURATION }}"
 
             - name: Restore NuGet packages (.NET Framework)
               if: ${{ github.event.inputs.repo_name == 'DemoNotCore' }}
               run: |
                 cd ${{ env.REPO_NAME }}
                 nuget restore ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }}
+                echo "Configuration - ${{ vars.CONFIGURATION }}"
 
     Build:
         runs-on: self-hosted
         needs: [Checkout_Target_Repo, NuGet_Restore]
+        environment: ${{ github.event.inputs.environment }}
         steps:
             - name: Build the solution (.NET Core)
               if: ${{ github.event.inputs.repo_name == 'CoreLearner' }}
               run: |
                 cd ${{ env.REPO_NAME }}
-                dotnet build --configuration Release
+                dotnet build --configuration ${{ vars.configuration}}
+                echo "Configuration - ${{ vars.CONFIGURATION }}"
 
             - name: Build the solution (.NET Framework)
               if: ${{ github.event.inputs.repo_name == 'DemoNotCore' }}
               run: |
                 cd ${{ env.REPO_NAME }}
-                msbuild ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }} /p:Configuration=Release /p:Platform="${{ env.PLATFORM }}"
-
-    
+                msbuild ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION}} /p:Platform="${{ env.PLATFORM }}"
+                echo "Configuration - ${{ vars.CONFIGURATION }}"
+  
     Clean_Up:
         runs-on: self-hosted
-        needs: [Checkout_Target_Repo]
+        needs: [Checkout_Target_Repo, NuGet_Restore, Build]
         steps:
             # Clean the target repo
             - name: Clean the target repo
