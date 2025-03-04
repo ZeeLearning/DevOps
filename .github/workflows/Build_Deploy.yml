@@ -33,6 +33,7 @@ jobs:
         # Set the output for the solution name
         outputs:
             SOLUTION_NAME: ${{ steps.get_solution_name.outputs.solutionName }}
+            SOLUTION_PATH: ${{ steps.get_solution_name.outputs.solutionPath}}
         steps:
             # Checkout the target repo
             - name: Check out the target repo 
@@ -50,12 +51,16 @@ jobs:
                 cd ${{ env.REPO_NAME }}
                 $solution = Get-ChildItem -Path . -Filter *.sln -Recurse
                 $solutionName = $solution.Name
+                $solutionPath = $solution.FullName
+                echo "Solution file path: $solutionPath"
                 echo "Solution file name: $solutionName"
                 echo "solutionName=$solutionName" >> $env:GITHUB_OUTPUT
+                echo "solutionPath=$solutionPath" >> $env:GITHUB_OUTPUT
 
             - name: Show Solution Name Output
               run: |
                 echo "Solution name set as output: ${{ steps.get_solution_name.outputs.solutionName }}"
+                echo "Solution path set as output: ${{ steps.get_solution_name.outputs.solutionPath }}"
 
     NuGet_Restore:
         runs-on: self-hosted
