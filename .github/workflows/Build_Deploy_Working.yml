@@ -1,274 +1,488 @@
-name: Build/Deploy
- 
-on:
-    workflow_dispatch:
-        inputs:
-            repo_name:
-                description: 'Name of the Repository'
-                required: true
-                type: choice
-                options:
-                    - 'CW.Aphrodite'
-                    - 'CW.Apollo'
-                    - 'CW.Athena'
-                    - 'CW.Chronos'
-                    - 'CW.ClientWebREST_API'
-                    - 'CW.ComplianceWire-1.0'
-                    - 'CW.Admin'
-                    - 'CW.Learner'
-                    - 'CW.CWWebApi'
-                    - 'CW.Hyperion'
-                    - 'CW.PSTools'
-                    - 'CW.ReportEngine'
-                    - 'CW.Zeus'
-                    
-            environment:
-                description: 'Environment'
-                required: true
-                type: choice
-                options:
-                    - 'INT'
-                    - 'QAProd'
-                    - 'NewQA'
-                    - 'SprintQA'
-                    - 'LT'
-                    - 'Production'
- 
-# Define environment variables that can be used in the workflow. 
-env:
-    REPO_NAME: ${{ github.event.inputs.repo_name }}
-    REPO_URL: "https://${{ secrets.USER_NAME }}:${{ secrets.PAT_TOKEN }}@github.com/Underwriters-Labs/${{ github.event.inputs.repo_name }}.git"
-    WORKSPACE_DIRECTORY: ${{ github.workspace }}
-    PLATFORM: 'Any CPU'
-    PLATFORM_MT: 'AnyCPU'
-    ATHENA_FOLDER_NAME: 'EN.Platform'
-    CLIENTWEBREST_API_FOLDER_NAME: 'EN.Web'
- 
-jobs:
-    Checkout_Target_Repo:
-        runs-on: self-hosted
-        environment: ${{ github.event.inputs.environment }}
-        # Set the output for the solution name
-        outputs:
-            SOLUTION_NAME: ${{ steps.get_solution_name.outputs.solutionName }}
-        steps:
-            # Checkout the target repo
-            - name: Check out the target repo 
-              run: |
-                git clone --branch ${{ vars.BRANCH }} ${{ env.REPO_URL}} ${{ env.REPO_NAME }}
-                cd ${{ env.REPO_NAME }}
-                echo "Cloned repository: ${{ env.REPO_NAME }} (branch: ${{ vars.BRANCH }})"
-                git branch 
-                echo ${{ env.WORKSPACE_DIRECTORY }}
-            
-            # Get solution file name 
-            - name: Get solution file name
-              id: get_solution_name
-              run: |
-                cd ${{ env.REPO_NAME }}
-                $solution = Get-ChildItem -Path . -Filter *.sln -Recurse
-                $solutionName = $solution.Name
-                echo "Solution file name: $solutionName"
-                echo "solutionName=$solutionName" >> $env:GITHUB_OUTPUT
-                echo "Solution Name - ${{ env.SOLUTION_NAME }}"
- 
-            - name: Show Solution Name Output
-              run: |
-                echo "Solution name set as output: ${{ steps.get_solution_name.outputs.solutionName }}"
-    
-    NuGet_Restore:
-        runs-on: self-hosted
-        needs: [Checkout_Target_Repo]
-        environment: ${{ github.event.inputs.environment }}
-        env:
-          SOLUTION_NAME: ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }}
-        steps:
-            # Install NuGet
-            - name: Install NuGet 
-              uses: NuGet/setup-nuget@v1
-            
-            # Clear NuGet cache
-            - name: Clear NuGet Cache
-              run: nuget locals all -clear
-            
-            # Setup NuGet source 
-            - name: Setup NuGet Source 
-              run: | 
-                    if (-not (nuget sources list | Select-String -Pattern "UL NuGet")) {
-                        nuget source add -name "UL NuGet" -source "https://hounuget01.eduneering.com/LocalNuGet/nuget" -username ${{ secrets.NUGET_USER }} -password ${{ secrets.NUGET_PASSWORD }}
-                    } else {
-                        Write-Output "NuGet source 'UL NuGet' already exists."
-                    }
- 
-            - name: Debug Solution Name
-              run: |
-                echo "Solution Name in NuGet_Restore: ${{ env.SOLUTION_NAME }}"
- 
-            # Skip NuGet Restore for CW.ComplianceWire-1.0 
-            - name: Skip NuGet Restore for CW.ComplianceWire-1.0
-              if: ${{ github.event.inputs.repo_name == 'CW.ComplianceWire-1.0' }}
-              run: |
-                echo "Skipping NuGet restore for CW.ComplianceWire-1.0"
- 
-            # Restore NuGet packages for CW.Athena 
-            - name: Restore NuGet Packages for CW.Athena 
-              if: ${{ github.event.inputs.repo_name == 'CW.Athena' }}
-              run: |
-                cd ${{ env.REPO_NAME }}
-                nuget restore ${{ env.ATHENA_FOLDER_NAME}}\${{ env.SOLUTION_NAME }} -source "UL NuGet"  
-                echo "Configuration - ${{ vars.CONFIGURATION }}"
-            
-            # Restore NuGet packages for CW.ClientWebREST_API
-            - name: Restore NuGet Packages for CW.ClientWebREST_API
-              if: ${{ github.event.inputs.repo_name == 'CW.ClientWebREST_API' }}
-              run: |
-                cd ${{ env.REPO_NAME }}
-                nuget restore ${{ env.CLIENTWEBREST_API_FOLDER_NAME }}\${{ env.SOLUTION_NAME }} -source "UL NuGet"  
-                echo "Configuration - ${{ vars.CONFIGURATION }}"
- 
-            # # Restore NuGet packages (.NET Core)
-            # - name: Restore NuGet packages (.NET Core)
-            #   if: ${{ github.event.inputs.repo_name == 'CW.Admin' || github.event.inputs.repo_name == 'CW.Learner' }}
-            #   run: |
-            #     cd ${{ env.REPO_NAME }}
-            #     dotnet restore ${{ env.SOLUTION_NAME }} --configuration 'Release'
-            #     echo "Configuration - ${{ vars.CONFIGURATION }}"
- 
-            # Fallback NuGet Restore for all other repos 
-            - name: Restore NuGet Packages (for all other repos)
-              if: ${{ github.event.inputs.repo_name != 'CW.Athena' && github.event.inputs.repo_name != 'CW.ClientWebREST_API' && github.event.inputs.repo_name != 'CW.Admin' && github.event.inputs.repo_name != 'CW.Learner' && github.event.inputs.repo_name != 'CW.ComplianceWire-1.0' }}
-              run: |
-                cd ${{ env.REPO_NAME }}
-                nuget restore ${{ env.SOLUTION_NAME }} -source "UL NuGet"  
-                echo "Configuration - ${{ vars.CONFIGURATION }}"
- 
-    Build_Solution:
-        runs-on: self-hosted   
-        environment: ${{ github.event.inputs.environment }}
-        needs: [Checkout_Target_Repo, NuGet_Restore]
-        env:
-            SOLUTION_NAME: ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }}
-        steps:   
-            # Install MSBuild 
-            - name: Install MSBuild 
-              uses: microsoft/setup-msbuild@v1
- 
-            # Aphrodite 
-            - name: Build and Deploy Aphrodite
-              if: ${{ env.REPO_NAME == 'CW.Aphrodite' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/WebAPI" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
- 
-            # Apollo
-            - name: Build and Deploy Apollo
-              if: ${{ env.REPO_NAME == 'CW.Apollo' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/CW3" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
-    
-            # Athena
-            - name: Build and Deploy Athena 
-              if: ${{ env.REPO_NAME == 'CW.Athena' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM_MT }}" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
-    
-            # Chronos
-            - name: Build and Deploy Chronos
-              if: ${{ env.REPO_NAME == 'CW.Chronos' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:DeployIisAppPath="ComplianceWire/Admin" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
- 
-            # Chronos
-            - name: Build and Deploy Chronos
-              if: ${{ env.REPO_NAME == 'CW.Chronos' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:DeployIisAppPath="ComplianceWire/CW2" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
- 
-            # ClientWebREST_API
-            - name: Build and Deploy ClientWebREST_API
-              if: ${{ env.REPO_NAME == 'CW.ClientWebREST_API' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:DeployIisAppPath="RESTAPI" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
- 
-            # ComplianceWire-1.0
-            - name: Build and Deploy ComplianceWire-1.0
-              if: ${{ env.REPO_NAME == 'CW.ComplianceWire-1.0' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:TransformConfigFiles=true /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:OutDir=${{ env.OUT_DIR}}
- 
-            # CWAdmin
-            - name: Build and Deploy CW.Admin 
-              if: ${{ env.REPO_NAME == 'CW.Admin' }}
-              run: |
-                cd ${{ env.REPO_NAME }}
-                dotnet build --configuration 'Release'
-                echo "Configuration - ${{ vars.CONFIGURATION }}"
- 
-            # CWLearner
-            - name: Build and Deploy CW.Learner
-              if: ${{ env.REPO_NAME == 'CW.Learner' }}
-              run: |
-                cd ${{ env.REPO_NAME }}
-                dotnet build --configuration 'Release'
-                echo "Configuration - ${{ vars.CONFIGURATION }}"
- 
-            # CWWebApi 
-            - name: Build and Deploy CWWebApi 
-              if: ${{ env.REPO_NAME == 'CW.CWWebApi' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:DeployIisAppPath="CWWebApi" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish  /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
-            
-            # CWWebApi - Router 
-            - name: Build and Deploy CWWebApi - Router
-              if: ${{ env.REPO_NAME == 'CW.CWWebApi' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish  /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
- 
-            # Hyperion
-            - name: Build and Deploy Hyperion 
-              if: ${{ env.REPO_NAME == 'CW.Hyperion' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:DeployIisAppPath="ComplianceWire/Configuration" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
- 
-            # PSTools
-            - name: Build and Deploy PSTools 
-              if: ${{ env.REPO_NAME == 'CW.PSTools' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:DeployIisAppPath="PSStudio" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
- 
-            # ReportEngine
-            - name: Build and Deploy ReportEngine 
-              if: ${{ env.REPO_NAME == 'CW.ReportEngine' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:DeployIisAppPath="ComplianceWire/ReportEngine" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"
- 
-            # Zeus 
-            - name: Build and Deploy Zeus 
-              if: ${{ env.REPO_NAME == 'CW.Zeus' }}
-              run: |
-                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM_MT }}" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\"    
- 
-    Clean_Up:
-        runs-on: self-hosted
-        needs: [Checkout_Target_Repo, NuGet_Restore, Build_Solution]
-        steps:
-            # Clean the target repo
-            - name: Clean the target repo
-              run: |
-                cd ${{ env.WORKSPACE_DIRECTORY }}
-                Remove-Item -Recurse -Force ${{ env.REPO_NAME }}
-                echo "Cleaned up the target repo"
- 
+name: Build_Deploy 
+on: 
 
+  workflow_dispatch: 
+
+    inputs: 
+
+        repo_name: 
+
+            description: 'Name of the Repository' 
+
+            required: true 
+
+            type: choice 
+
+            options: 
+
+                - 'CW.Aphrodite' 
+                - 'CW.Apollo' 
+                - 'CW.Athena' 
+                - 'CW.Chronos' 
+                - 'CW.ClientWebREST_API' 
+                - 'CW.ComplianceWire-1.0' 
+                - 'CW.Admin' 
+                - 'CW.Learner' 
+                - 'CW.CWWebApi' 
+                - 'CW.Hyperion' 
+                - 'CW.PSTools' 
+                - 'CW.ReportEngine' 
+                - 'CW.Zeus' 
+
+        environment: 
+            description: 'Environment' 
+            required: true 
+            type: choice 
+            options: 
+                - 'INT' 
+                - 'QAProd' 
+                - 'NewQA' 
+                - 'SprintQA' 
+                - 'LT' 
+                - 'Production' 
+
+# Define environment variables that can be used in the workflow.  
+
+env: 
+
+    REPO_NAME: ${{ github.event.inputs.repo_name }} 
+
+    REPO_URL: "https://${{ secrets.USER_NAME }}:${{ secrets.PAT_TOKEN }}@github.com/Underwriters-Labs/${{ github.event.inputs.repo_name }}.git" 
+
+    WORKSPACE_DIRECTORY: ${{ github.workspace }} 
+
+    PLATFORM: 'Any CPU' 
+
+    PLATFORM_NOSPACE: 'AnyCPU' 
+
+    ATHENA_FOLDER_NAME: 'EN.Platform' 
+
+    CLIENTWEBREST_API_FOLDER_NAME: 'EN.Web' 
+
+    NUGET_SOURCE: "https://api.nuget.org/v3/index.json" 
+
+  
+
+jobs: 
+
+    Checkout_Target_Repo: 
+
+        runs-on: self-hosted 
+
+        environment: ${{ github.event.inputs.environment }} 
+
+        # Set the output for the solution name 
+
+        outputs: 
+
+            SOLUTION_NAME: ${{ steps.get_solution_name.outputs.solutionName }} 
+
+        steps: 
+
+            # Checkout the target repo 
+
+            - name: Check out the target repo  
+
+              run: | 
+
+                git clone --branch ${{ vars.BRANCH }} ${{ env.REPO_URL}} ${{ env.REPO_NAME }} 
+
+                cd ${{ env.REPO_NAME }} 
+
+                echo "Cloned repository: ${{ env.REPO_NAME }} (branch: ${{ vars.BRANCH }})" 
+
+                git checkout ${{ vars.BRANCH }} 
+
+                echo "Checked out branch: ${{ vars.BRANCH }}" 
+
+                git branch 
+
+                echo ${{ env.WORKSPACE_DIRECTORY }} 
+
+             
+
+            # Get solution file name  
+
+            - name: Get solution file name 
+
+              id: get_solution_name 
+
+              run: | 
+
+                cd ${{ env.REPO_NAME }} 
+
+                $solution = Get-ChildItem -Path . -Filter *.sln -Recurse | Select-Object -First 1  
+
+                if ($solution) {  
+
+                    $solutionName = $solution.Name  
+
+                    echo "Solution file name: $solutionName"  
+
+                    echo "solutionName=$solutionName" >> $env:GITHUB_OUTPUT  
+
+                } else {  
+
+                    echo "No solution file found."  
+
+                    exit 1  
+
+                }  
+
+  
+
+            # - name: Show Solution Name Output 
+
+            #   run: | 
+
+            #     echo "Solution name set as output: ${{ steps.get_solution_name.outputs.solutionName }}" 
+
+     
+
+    NuGet_Restore: 
+
+        runs-on: self-hosted 
+
+        needs: [Checkout_Target_Repo]  
+
+        environment: ${{ github.event.inputs.environment }}  
+
+        env:  
+
+          SOLUTION_NAME: ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }}  
+
+        steps:  
+
+            - name: Install NuGet   
+
+              uses: NuGet/setup-nuget@v1  
+
+  
+
+            # - name: Clear NuGet Cache  
+
+            #   run: nuget locals all -clear  
+
+  
+
+            - name: Setup NuGet Source   
+
+              run: |   
+
+                if (-not (nuget sources list | Select-String -Pattern "UL NuGet")) {  
+
+                    nuget source add -name "UL NuGet" -source ${{ vars.UL_NUGET }} -username ${{ secrets.NUGET_USER }} -password ${{ secrets.NUGET_PASSWORD }}  
+
+                } else {  
+
+                    Write-Output "NuGet source 'UL NuGet' already exists."  
+
+                }  
+
+  
+
+            # - name: Debug Solution Name  
+
+            #   run: |  
+
+            #     echo "Solution Name in NuGet_Restore: ${{ env.SOLUTION_NAME }}"  
+
+  
+
+            # Restore NuGet packages based on project type  
+
+            - name: Restore NuGet Packages  
+
+              run: |  
+
+                cd ${{ env.REPO_NAME }}  
+
+                if ('${{ env.REPO_NAME }}' -in @('CW.Admin', 'CW.Learner')) {  
+
+                    dotnet restore CWLearner\CWLearner.csproj --source ${{ env.NUGET_SOURCE}} 
+
+                    dotnet --version 
+
+                } elseif ('${{ env.REPO_NAME }}' -in @('CW.Admin', 'CW.Learner')) {  
+
+                    dotnet restore CWAdmin\CWAdmin.csproj --source ${{ env.NUGET_SOURCE}} 
+
+                } elseif ('${{ env.REPO_NAME }}' -eq 'CW.Athena') {  
+
+                    nuget restore ${{ env.ATHENA_FOLDER_NAME }}\${{ env.SOLUTION_NAME }} -source "UL NuGet"  
+
+                } elseif ('${{ env.REPO_NAME }}' -eq 'CW.ClientWebREST_API') {  
+
+                    nuget restore ${{ env.CLIENTWEBREST_API_FOLDER_NAME }}\${{ env.SOLUTION_NAME }} -source "UL NuGet"  
+
+                } elseif ('${{ env.REPO_NAME }}' -eq 'CW.ComplianceWire-1.0') { 
+
+                    echo "Skipping NuGet restore for CW.ComplianceWire-1.0" 
+
+                } else {  
+
+                    nuget restore ${{ env.SOLUTION_NAME }} -source "UL NuGet"  
+
+                }  
+
+  
+
+                echo "Configuration - ${{ vars.CONFIGURATION }}"  
+
+         
+
+    Build_Solution: 
+
+        runs-on: self-hosted    
+
+        environment: ${{ github.event.inputs.environment }} 
+
+        needs: [Checkout_Target_Repo, NuGet_Restore] 
+
+        env: 
+
+          SOLUTION_NAME: ${{ needs.Checkout_Target_Repo.outputs.SOLUTION_NAME }} 
+
+        steps:    
+
+            # Install MSBuild  
+
+            - name: Install MSBuild  
+
+              uses: microsoft/setup-msbuild@v1 
+
+  
+
+            # Aphrodite  
+
+            - name: Build and Deploy Aphrodite 
+
+              if: ${{ env.REPO_NAME == 'CW.Aphrodite' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/WebAPI" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # Apollo 
+
+            - name: Build and Deploy Apollo 
+
+              if: ${{ env.REPO_NAME == 'CW.Apollo' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/CW3" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # Athena 
+
+            - name: Build and Deploy Athena  
+
+              if: ${{ env.REPO_NAME == 'CW.Athena' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.ATHENA_FOLDER_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.ATHENA_FOLDER_NAME }}\${{ env.SOLUTION_NAME}} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM_NOSPACE }}" /p:MsDeployServiceUrl=${{ vars.MT_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # Chronos 
+
+            - name: Build and Deploy Chronos 
+
+              if: ${{ env.REPO_NAME == 'CW.Chronos' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/Admin" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # Chronos 
+
+            - name: Build and Deploy Chronos 
+
+              if: ${{ env.REPO_NAME == 'CW.Chronos' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/CW2" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # ClientWebREST_API 
+
+            - name: Build and Deploy ClientWebREST_API 
+
+              if: ${{ env.REPO_NAME == 'CW.ClientWebREST_API' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.CLIENTWEBREST_API_FOLDER_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.CLIENTWEBREST_API_FOLDER_NAME }}\${{ env.SOLUTION_NAME}} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="RESTAPI" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # ComplianceWire-1.0 
+
+            - name: Build and Deploy ComplianceWire-1.0 
+
+              if: ${{ env.REPO_NAME == 'CW.ComplianceWire-1.0' }} 
+
+              run: | 
+
+                echo "Building project file: ${{ env.REPO_NAME }}\ComplianceWrieAP\ComplianceWire.csproj" 
+
+                msbuild ${{ env.REPO_NAME }}\ComplianceWireAP\ComplianceWire.csproj /p:Configuration=Release /p:Platform="${{ env.PLATFORM_NOSPACE }}" /p:TransformConfigFiles=true /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # CWAdmin 
+
+            - name: Build and Deploy CW.Admin  
+
+              if: ${{ env.REPO_NAME == 'CW.Admin' }} 
+
+              run: | 
+
+                cd ${{ env.REPO_NAME }} 
+
+                dotnet build --configuration ${{ vars.CONFIGURATION}} 
+
+                echo "Configuration - ${{ vars.CONFIGURATION }}" 
+
+  
+
+            # CWLearner 
+
+            - name: Build and Deploy CW.Admin  
+
+              if: ${{ env.REPO_NAME == 'CW.Learner' }} 
+
+              run: | 
+
+                cd ${{ env.REPO_NAME }} 
+
+                dotnet build --configuration ${{ vars.CONFIGURATION}} 
+
+                echo "Configuration - ${{ vars.CONFIGURATION }}" 
+
+  
+
+            # CWWebApi  
+
+            - name: Build and Deploy CWWebApi  
+
+              if: ${{ env.REPO_NAME == 'CW.CWWebApi' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.MT_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish  /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+             
+
+            # CWWebApi - Router  
+
+            - name: Build and Deploy CWWebApi - Router 
+
+              if: ${{ env.REPO_NAME == 'CW.CWWebApi' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish  /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # Hyperion 
+
+            - name: Build and Deploy Hyperion  
+
+              if: ${{ env.REPO_NAME == 'CW.Hyperion' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/Configuration" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # PSTools 
+
+            - name: Build and Deploy PSTools  
+
+              if: ${{ env.REPO_NAME == 'CW.PSTools' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="PSStudio" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # ReportEngine 
+
+            - name: Build and Deploy ReportEngine  
+
+              if: ${{ env.REPO_NAME == 'CW.ReportEngine' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/ReportEngine" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir="\\CWStaging01\Builds\ZY_GitHubActionTest\${{ env.REPO_NAME }}\${{ vars.BRANCH }}\${{ vars.CONFIGURATION }}\" 
+
+  
+
+            # Zeus  
+
+            - name: Build and Deploy Zeus  
+
+              if: ${{ env.REPO_NAME == 'CW.Zeus' }} 
+
+              run: | 
+
+                echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}" 
+
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM_NOSPACE }}" /p:MsDeployServiceUrl=${{ vars.MT_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir=${{ env.OUT_DIR }} 
+
+   
+
+    Clean_Up: 
+
+        runs-on: self-hosted 
+
+        needs: [Checkout_Target_Repo, NuGet_Restore, Build_Solution] 
+
+        steps: 
+
+            # Clean the target repo 
+
+            - name: Clean the target repo 
+
+              run: | 
+
+                cd ${{ env.WORKSPACE_DIRECTORY }} 
+
+                Remove-Item -Recurse -Force ${{ env.REPO_NAME }} 
+
+                echo "Cleaned up the target repo" 
