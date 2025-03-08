@@ -23,6 +23,5 @@ jobs:
                 if: github.event.inputs.repo_name == 'CW.Chronos-Admin'
                 echo "CW.Chronos-Admin"
                 $repo_name_string = "CW.Chronos-Admin"
-                $string_after = $repo_name_string.Substring(repo_name_string.IndexOf("-") + 1)
+                $string_after = $repo_name_string.Substring($repo_name_string.IndexOf("-") + 1)
                 echo "String after hyphen: $string_after"
-                
