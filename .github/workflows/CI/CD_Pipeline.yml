@@ -1,0 +1,58 @@
+name: CI/CD Pipeline
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'  # Runs every 4 hours
+
+jobs:
+  trigger-deployment:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo_name: [
+          'CW.Aphrodite',
+          'CW.Apollo',
+          'CW.Athena',
+          'CW.Chronos',
+          'CW.ClientWebREST_API',
+          'CW.ComplianceWire-1.0',
+          'CW.Admin',
+          'CW.Learner',
+          'CW.CWWebApi',
+          'CW.Hyperion',
+          'CW.PSTools',
+          'CW.ReportEngine',
+          'CW.Zeus'
+        ]
+    steps:
+      - name: Trigger Build/Deploy Workflow for ${{ matrix.repo_name }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: 'Underwriters-Labs',
+              repo: '${{ matrix.repo_name }}',
+              workflow_id: 'Build_Deploy_Working.yml',
+              ref: 'main',
+              inputs: {
+                repo_name: '${{ matrix.repo_name }}',
+                environment: 'INT'  # Pre-defined environment
+              }
+            });
+      
+      - name: Send Email Notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: 'Build/Deploy Status for ${{ matrix.repo_name }}'
+          body: 'The build and deployment process for ${{ matrix.repo_name }} has completed with status: ${{ job.status }}'
+          to: 'team@example.com'
+          from: 'ci-cd-pipeline@example.com'
+
+# This setup triggers the build/deploy workflow for every repository in the list
+# every 4 hours, using the 'INT' environment, and sends an email with the status. 🚀
