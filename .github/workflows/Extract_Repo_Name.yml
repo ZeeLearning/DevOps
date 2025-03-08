@@ -1,0 +1,28 @@
+name: Extract Repo Name 
+
+on: 
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: 'Repository Name'
+        required: true
+        type: choice
+        options:
+          - 'CW.Chronos-Admin'
+          - 'CW.Chronos'
+          - 'CW.CWWebApi-Router'
+          - 'CW.CWWebApi'
+          - 'CW.Aphrodite'
+
+jobs:
+    Extract_Repo_Name:
+        runs-on: self-hosted
+        steps: 
+            - name: Get Repo Name
+              run: |
+                if: github.event.inputs.repo_name == 'CW.Chronos-Admin'
+                echo "CW.Chronos-Admin"
+                $repo_name_string = "CW.Chronos-Admin"
+                $string_after = $repo_name_string.Substring(repo_name_string.IndexOf("-") + 1)
+                echo "String after hyphen: $string_after"
+                
