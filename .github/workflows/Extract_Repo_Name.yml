@@ -23,5 +23,8 @@ jobs:
               run: |
                 echo "CW.Chronos-Admin"
                 $repo_name_string = "CW.Chronos-Admin"
+                $string_before =  $repo_name_string.Substring(0, $repo_name_string.IndexOf("-"))
+                echo "String before hyphen: $string_before"
                 $string_after = $repo_name_string.Substring($repo_name_string.IndexOf("-") + 1)
                 echo "String after hyphen: $string_after"
+                
