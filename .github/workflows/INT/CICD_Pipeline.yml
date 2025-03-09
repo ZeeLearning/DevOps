@@ -10,8 +10,19 @@ on:
         required: true
         type: choice
         options:
-          - 'CoreLearner'
-          - 'DemoNotCore'
+          - 'CW.Aphrodite'
+          - 'CW.Apollo'
+          - 'CW.Athena'
+          - 'CW.Chronos'
+          - 'CW.ClientWebREST_API'
+          - 'CW.ComplianceWire-1.0'
+          - 'CW.Admin'
+          - 'CW.Learner'
+          - 'CW.CWWebApi'
+          - 'CW.Hyperion'
+          - 'CW.PSTools'
+          - 'CW.ReportEngine'
+          - 'CW.Zeus'
 
 jobs:
   trigger-deployment:
@@ -19,8 +30,19 @@ jobs:
     strategy:
       matrix:
         repo_name: [
-          'CoreLearner',
-          'DemoNotCore'
+          'CW.Aphrodite',
+          'CW.Apollo',
+          'CW.Athena',
+          'CW.Chronos',
+          'CW.ClientWebREST_API',
+          'CW.ComplianceWire-1.0',
+          'CW.Admin',
+          'CW.Learner',
+          'CW.CWWebApi',
+          'CW.Hyperion',
+          'CW.PSTools',
+          'CW.ReportEngine',
+          'CW.Zeus'
         ]
     steps:
       - name: Trigger Build/Deploy Workflow for ${{ matrix.repo_name }}
@@ -29,9 +51,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             await github.rest.actions.createWorkflowDispatch({
-              owner: 'ZeeLearning',
+              owner: 'Underwriters-Labs',
               repo: '${{ matrix.repo_name }}',
-              workflow_id: 'Build_Deploy.yml',
+              workflow_id: 'Build_Deploy_Working.yml',
               ref: 'main',
               inputs: {
                 repo_name: '${{ matrix.repo_name }}',
