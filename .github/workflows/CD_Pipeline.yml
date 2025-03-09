@@ -1,8 +1,28 @@
 name: CI/CD Pipeline
 
 on:
-  schedule:
-    - cron: '0 */4 * * *'  # Runs every 4 hours
+  # schedule:
+  #   - cron: '0 */4 * * *'  # Runs every 4 hours
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: 'Repository Name'
+        required: true
+        type: choice
+        options:
+          - 'CW.Aphrodite'
+          - 'CW.Apollo'
+          - 'CW.Athena'
+          - 'CW.Chronos'
+          - 'CW.ClientWebREST_API'
+          - 'CW.ComplianceWire-1.0'
+          - 'CW.Admin'
+          - 'CW.Learner'
+          - 'CW.CWWebApi'
+          - 'CW.Hyperion'
+          - 'CW.PSTools'
+          - 'CW.ReportEngine'
+          - 'CW.Zeus'
 
 jobs:
   trigger-deployment:
