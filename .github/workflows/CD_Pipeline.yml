@@ -49,7 +49,7 @@ jobs:
           password: ${{ secrets.MAIL_PASSWORD }}
           subject: 'Build/Deploy Status for ${{ matrix.repo_name }}'
           body: 'The build and deployment process for ${{ matrix.repo_name }} has completed with status: ${{ job.status }}'
-          to: 'team@example.com'
+          to: 'yclassic@gmail.com'
           from: 'ci-cd-pipeline@example.com'
 
 # This setup triggers the build/deploy workflow for every repository in the list
