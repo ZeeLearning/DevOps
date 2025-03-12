@@ -14,9 +14,9 @@ name: CI/CD Pipeline
 
 on:   
 
-  schedule:  
+  # schedule:  
 
-    - cron: '*/5 * * * *'  # Runs every 5 minutes for testing; adjust as needed 
+  #   - cron: '*/5 * * * *'  # Runs every 5 minutes for testing; adjust as needed 
 
   workflow_dispatch:  
 
@@ -53,6 +53,10 @@ jobs:
   INT_CI_CD_Pipeline:  
 
     runs-on: self-hosted 
+
+    outputs: 
+
+      STATUS: ${{ steps.get_build_status.outputs.status}} 
 
     strategy: 
 
@@ -102,21 +106,25 @@ jobs:
 
  
 
-      - name: Capture Status 
+      - name: Capture Build Status 
 
-        id: capture_status 
+        id: get_build_status 
 
-        run: echo "status=${{ job.status }}" >> $GITHUB_ENV 
-
- 
+        run: echo "status=${{ job.status }}" >> $GITHUB_OUTPUT 
 
  
 
-  notify: 
+ 
 
-    runs-on: ubuntu-latest 
+  Email_Notification: 
+
+    runs-on: self-hosted 
 
     needs: INT_CI_CD_Pipeline 
+
+    env: 
+
+      STATUS: ${{ needs.INT_CI_CD_Pipeline.outputs.STATUS }} 
 
     steps: 
 
@@ -124,9 +132,11 @@ jobs:
 
         if: always()  
 
-        shell: pwsh 
+        shell: powershell 
 
         run: | 
+
+          echo "Status: ${{ env.STATUS }}" 
 
           $smtpServer = "x2.eduneering.com" 
 
@@ -146,14 +156,26 @@ jobs:
 
           Summary: 
 
-          - CW.Aphrodite: ${{ needs.INT_CI_CD_Pipeline.outputs['CW.Aphrodite'].result }} 
+          - CW.Aphrodite: ${{ env.STATUS}} 
 
-          - CW.ClientWebREST_API: ${{ needs.INT_CI_CD_Pipeline.outputs['CW.ClientWebREST_API'].result }} 
+          - CW.ClientWebREST_API: ${{ env.STATUS }} 
 
           "@ 
 
            
 
           Send-MailMessage -SmtpServer $smtpServer -Port $smtpPort -From $smtpFrom -To $smtpTo -Subject $subject -Body $body 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
 
  
