@@ -1,0 +1,130 @@
+# This workflow triggers the build/deploy workflow for every repository in the list  
+
+# every 5 minutes, using the 'INT' environment, and sends an email with the status. 
+
+name: INT - CI/CD Pipeline  
+
+on:  
+  # schedule:  
+  #   - cron: '*/5 * * * *' # Every 5 minutes 
+  workflow_dispatch:  
+    inputs:  
+      environment:  
+        description: 'Environment'  
+        required: true  
+        type: choice  
+        options:  
+          - 'INT'  
+          # - 'QAProd'  
+          # - 'NewQA'  
+          # - 'SprintQA'  
+          # - 'LT'  
+          # - 'Production'  
+
+jobs:  
+  INT_CI_CD_Pipeline:  
+    runs-on: self-hosted  
+    strategy:  
+      matrix:  
+        repo_name:  
+          - 'CW.Aphrodite'  
+          - 'CW.ClientWebREST_API'  
+
+    steps:  
+      # - name: Clear Previous Status File  
+      #   run: |  
+      #     rm -Force status_${{ matrix.repo_name }}.json  
+
+      - name: Trigger Build and Deploy Workflow  
+        uses: actions/github-script@v4  
+        with:  
+          script: |  
+            const response = await github.actions.createWorkflowDispatch({  
+            owner: context.repo.owner,  
+            repo: context.repo.repo,  
+            workflow_id: 'Build_Deploy_Env_GitHub.yml',  
+            ref: 'main',  
+            inputs: {  
+              repo_name: '${{ matrix.repo_name }}',  
+              environment: 'INT'  
+            }  
+            });  
+
+            console.log(response);  
+
+      - name: Capture Build Status  
+        id: get_build_status  
+        run: |  
+          echo '{"repo": "${{ matrix.repo_name }}", "status": "${{ job.status }}"}' > status_${{ matrix.repo_name }}.json  
+
+      - name: Upload Build Status  
+        uses: actions/upload-artifact@v4 
+        with:  
+          name: build_status_${{ matrix.repo_name }}  
+          path: status_${{ matrix.repo_name }}.json  
+ 
+  Email_Notification:  
+    runs-on: self-hosted  
+    needs: INT_CI_CD_Pipeline  
+    steps:  
+      - name: Download All Build Status JSONs  
+        uses: actions/download-artifact@v4  
+        with:  
+          path: ./status_files  
+
+      - name: Combine and Send Email Notification  
+        if: always()  
+        shell: powershell  
+        run: |  
+          $statusSummary = ""  
+          $processedRepos = @{}   
+
+          Get-ChildItem -Path ./status_files -Recurse -Filter "*.json" | ForEach-Object {  
+            $jsonContent = Get-Content $_.FullName | ConvertFrom-Json  
+
+            Write-OutPut "JSON content: $jsonContent"  
+
+            # Extract the repo name and status from the JSON content 
+
+            $repoKey = $jsonContent.repo  
+
+            $buildStatus = $jsonContent.status 
+
+            # Only add the repo if not already processed  
+
+            if (-not $processedRepos.ContainsKey($repoKey)) {  
+
+              $statusSummary += "- ${repoKey}: ${buildStatus}`n"  
+
+              # Mark this repo as processed to avoid duplicates 
+
+              Write-OutPut "Processing repo: $repoKey with status: $($jsonContent.status)" 
+
+              Write-OutPut "Summary so far: $statusSummary" 
+
+              $processedRepos[$repoKey] = $true  
+
+            }  
+
+          }  
+
+          $smtpServer = "x2.eduneering.com"  
+          $smtpFrom = "rootdrop@eduneering.com"  
+          $smtpTo = "zeeshan.yousaf@ul.com"  
+          $smtpPort = "25"  
+          $subject = "INT - CI/CD"  
+          $body = @"  
+
+          INT CI/CD Pipeline has been completed.  
+
+          Summary:  
+
+          $statusSummary  
+
+          "@  
+
+          Send-MailMessage -SmtpServer $smtpServer -Port $smtpPort -From $smtpFrom -To $smtpTo -Subject $subject -Body $body  
+
+ 
+
+ 
