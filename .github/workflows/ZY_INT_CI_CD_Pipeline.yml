@@ -17,18 +17,15 @@ jobs:
   Trigger_Builds:
     runs-on: self-hosted
     steps:
-      - name: Set repository list  
-        run: |
-          echo "REPOS=(
-            'CoreLearner'
-            'DemoNotCore'
-          )" >> $GITHUB_ENV
-
       - name: Trigger Workflows  
-        uses: actions/github-script@v4  
+        uses: actions/github-script@v6  
         with:  
           script: |  
-            const repos = process.env.REPOS.split("\n").filter(repo => repo.trim() !== '');
+            const repos = [
+              'CoreLearner'
+              'DemoNotCore'
+            ];
+
             let results = [];
 
             for (const repo of repos) {  
@@ -39,16 +36,16 @@ jobs:
                   workflow_id: 'Build_Deploy.yml',  
                   ref: 'main',  
                   inputs: {  
-                    repo_name: repo.trim(),  
+                    repo_name: repo,  
                     environment: '${{ inputs.environment }}'  
                   }  
                 });
 
-                console.log(`Triggered workflow for ${repo.trim()}`);
-                results.push(`${repo.trim()}: Triggered`);
+                console.log(`✅ Triggered workflow for ${repo}`);
+                results.push(`${repo}: ✅ Triggered`);
               } catch (error) {  
-                console.error(`Failed to trigger ${repo.trim()}: ${error}`);
-                results.push(`${repo.trim()}: Failed`);
+                console.error(`❌ Failed to trigger ${repo}: ${error.message}`);
+                results.push(`${repo}: ❌ Failed`);
               }  
             }  
 
@@ -62,7 +59,6 @@ jobs:
         if: always()  
         shell: bash  
         run: |  
-          BUILD_RESULTS="${{ needs.Trigger_Builds.outputs.build_results }}"  
-          echo -e "Build Results:\n$BUILD_RESULTS" > build_status.txt
+          echo -e "Build Results:\n${{ needs.Trigger_Builds.outputs.build_results }}" > build_status.txt
 
           #mail -s "INT - CI/CD Build Status" user@example.com < build_status.txt
