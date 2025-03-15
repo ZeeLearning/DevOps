@@ -37,7 +37,7 @@ jobs:
                   ref: 'main',  
                   inputs: {  
                     repo_name: repo,  
-                    environment: '${{ inputs.environment }}'  
+                    environment: "${{ inputs.environment }}" 
                   }  
                 });
 
