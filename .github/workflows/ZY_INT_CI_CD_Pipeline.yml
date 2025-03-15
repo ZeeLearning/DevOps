@@ -34,6 +34,7 @@ jobs:
 
           # Set environment
           $environment = "${{ inputs.environment }}"
+          $token = "${{ secrets.PAT_TOKEN }}"
           $owner = "${{ github.repository_owner }}"
           $repo = "${{ github.event.repository.name }}"
 
@@ -64,7 +65,7 @@ jobs:
           }
 
           # Save results to a file
-          $resultString = $results -join "`n"
+          $resultString = $resultString -replace "`r?`n", ""
           echo "build_results=$resultString" >> $env:GITHUB_OUTPUT
 
   Email_Notification:  
