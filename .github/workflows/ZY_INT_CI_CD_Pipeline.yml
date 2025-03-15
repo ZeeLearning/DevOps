@@ -1,0 +1,68 @@
+name: ZY - INT - CI/CD Pipeline  
+
+on:  
+  workflow_dispatch:  
+    inputs:  
+      environment:  
+        description: 'Environment'  
+        required: true  
+        type: choice  
+        options:  
+          - 'INT'  
+          - 'QA'  
+          - 'QAProd'  
+          - 'Production'  
+
+jobs:
+  Trigger_Builds:
+    runs-on: self-hosted
+    steps:
+      - name: Set repository list  
+        run: |
+          echo "REPOS=(
+            'CoreLearner'
+            'DemoNotCore'
+          )" >> $GITHUB_ENV
+
+      - name: Trigger Workflows  
+        uses: actions/github-script@v4  
+        with:  
+          script: |  
+            const repos = process.env.REPOS.split("\n").filter(repo => repo.trim() !== '');
+            let results = [];
+
+            for (const repo of repos) {  
+              try {
+                await github.rest.actions.createWorkflowDispatch({  
+                  owner: context.repo.owner,  
+                  repo: context.repo.repo,  
+                  workflow_id: 'Build_Deploy.yml',  
+                  ref: 'main',  
+                  inputs: {  
+                    repo_name: repo.trim(),  
+                    environment: '${{ inputs.environment }}'  
+                  }  
+                });
+
+                console.log(`Triggered workflow for ${repo.trim()}`);
+                results.push(`${repo.trim()}: Triggered`);
+              } catch (error) {  
+                console.error(`Failed to trigger ${repo.trim()}: ${error}`);
+                results.push(`${repo.trim()}: Failed`);
+              }  
+            }  
+
+            core.setOutput("build_results", results.join("\n"));
+
+  Email_Notification:  
+    runs-on: self-hosted  
+    needs: Trigger_Builds  
+    steps:  
+      - name: Send Email Notification  
+        if: always()  
+        shell: bash  
+        run: |  
+          BUILD_RESULTS="${{ needs.Trigger_Builds.outputs.build_results }}"  
+          echo -e "Build Results:\n$BUILD_RESULTS" > build_status.txt
+
+          #mail -s "INT - CI/CD Build Status" user@example.com < build_status.txt
