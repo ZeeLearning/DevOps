@@ -64,9 +64,50 @@ jobs:
               }
           }
 
-          # Save results to a file
-          $resultString = $resultString -replace "`r?`n", ""
-          echo "build_results=$resultString" >> $env:GITHUB_OUTPUT
+            # Wait for Workflows to Finish
+            Write-Output "⏳ Waiting for all workflows to complete..."
+            $allDone = $false
+            while (-not $allDone) {
+                Start-Sleep -Seconds 30  # Wait before checking status
+
+                $allDone = $true  # Assume all are done unless we find running ones
+
+                foreach ($repoName in $workflowRuns.Keys) {
+                    if ($workflowRuns[$repoName] -eq "completed") {
+                        continue  # Skip already completed workflows
+                    }
+
+                    $statusUrl = "https://api.github.com/repos/$owner/$repo/actions/runs"
+                    $runs = Invoke-RestMethod -Uri $statusUrl -Method Get -Headers @{
+                        "Authorization" = "Bearer $token"
+                        "Accept"        = "application/vnd.github.v3+json"
+                    }
+
+                    # Get the latest run for this repo
+                    $latestRun = $runs.workflow_runs | Where-Object { $_.name -like "*Build_Deploy*" -and $_.head_branch -eq "main" -and $_.status -ne "completed" } | Sort-Object created_at -Descending | Select-Object -First 1
+
+                    if ($latestRun) {
+                        $workflowRuns[$repoName] = $latestRun.status
+                        if ($latestRun.status -eq "completed") {
+                            $conclusion = $latestRun.conclusion
+                            Write-Output "🔍 $repoName finished with status: $conclusion"
+                            $results += "$repoName: $conclusion"
+                        } else {
+                            $allDone = $false  # At least one workflow is still running
+                        }
+                    }
+                }
+            }
+
+            Write-Output "✅ All workflows completed!"
+
+            # Join results and escape newlines
+            $resultString = $results -join ", "
+            $resultString = $resultString -replace "`r?`n", ""
+
+            # Set GitHub Action output
+            echo "build_results=$resultString" >> $env:GITHUB_OUTPUT
+
 
   Email_Notification:  
     runs-on: self-hosted  
