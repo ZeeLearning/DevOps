@@ -38,6 +38,9 @@ jobs:
           $owner = "${{ github.repository_owner }}"
           $repo = "${{ github.event.repository.name }}"
 
+          Write-Output "Owner: $owner"
+          Write-Output "Repository: $repo"
+
           # Loop through repositories and trigger workflows
           foreach ($repoName in $repos) {
               $url = "https://api.github.com/repos/$owner/$repo/actions/workflows/Build_Deploy.yml/dispatches"
