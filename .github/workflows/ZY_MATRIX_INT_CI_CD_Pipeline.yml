@@ -25,11 +25,12 @@ jobs:
     steps:
       - name: Trigger Build and Deploy Workflow  
         uses: actions/github-script@v4  
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use the PAT secret here
         with:  
           script: |  
             const response = await github.actions.createWorkflowDispatch({  
               owner: 'ZeeLearning',  
-              token: '${{ secrets.PAT_TOKEN }}',
               repo: 'DevOps',  
               workflow_id: 'Build_Deploy.yml',  
               ref: 'main',  
