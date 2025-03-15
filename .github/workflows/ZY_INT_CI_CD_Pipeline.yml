@@ -90,8 +90,8 @@ jobs:
                         $workflowRuns[$repoName] = $latestRun.status
                         if ($latestRun.status -eq "completed") {
                             $conclusion = $latestRun.conclusion
-                            Write-Output "🔍 $repoName finished with status: $conclusion"
-                            $results += "$repoName: $conclusion"
+                            Write-Output "🔍 ${repoName} finished with status: $conclusion"
+                            $results += "${repoName}: $conclusion"
                         } else {
                             $allDone = $false  # At least one workflow is still running
                         }
