@@ -28,8 +28,8 @@ jobs:
         with:  
           script: |  
             const response = await github.actions.createWorkflowDispatch({  
-              owner: context.repo.owner,  
-              repo: context.repo.repo,  
+              owner: 'ZeeLearning',  
+              repo: 'DevOps',  
               workflow_id: 'Build_Deploy.yml',  
               ref: 'main',  
               inputs: {  
