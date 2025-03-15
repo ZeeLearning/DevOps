@@ -56,10 +56,10 @@ jobs:
                   } -Body $body
 
                   Write-Output "✅ Triggered workflow for $repoName"
-                  $results += "$repoName: ✅ Triggered"
+                  $results += "${repoName}: ✅ Triggered"
               } catch {
                   Write-Output "❌ Failed to trigger $repoName - $($_.Exception.Message)"
-                  $results += "$repoName: ❌ Failed"
+                  $results += "${repoName}: ❌ Failed"
               }
           }
 
