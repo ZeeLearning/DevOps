@@ -16,43 +16,56 @@ on:
 jobs:
   Trigger_Builds:
     runs-on: self-hosted
+    outputs:
+      build_results: ${{ steps.trigger.outputs.build_results }}
     steps:
-      - name: Trigger Workflows  
-        uses: actions/github-script@v4  
-        with:  
-          script: |  
-            const repos = [
-              'CoreLearner'
-              'DemoNotCore'
-            ];
+      - name: Trigger Workflows with PowerShell  
+        id: trigger
+        shell: pwsh  
+        run: |
+          # Define repositories
+          $repos = @(
+            "CoreLearner"
+            "DemoNotCore"
+          )
 
-            let results = [];
+          # Initialize result list
+          $results = @()
 
-            let environment = "${{ inputs.environment }}";  // Direct string input from GitHub Actions
+          # Set environment
+          $environment = "${{ inputs.environment }}"
+          $owner = "${{ github.repository_owner }}"
+          $repo = "${{ github.event.repository.name }}"
 
-            for (const repo of repos) {  
+          # Loop through repositories and trigger workflows
+          foreach ($repoName in $repos) {
+              $url = "https://api.github.com/repos/$owner/$repo/actions/workflows/Build_Deploy.yml/dispatches"
+              $body = @{
+                  ref = "main"
+                  inputs = @{
+                      repo_name   = $repoName
+                      environment = $environment
+                  }
+              } | ConvertTo-Json -Depth 2 -Compress
+
               try {
-                await github.rest.actions.createWorkflowDispatch({  
-                  owner: context.repo.owner,  
-                  repo: context.repo.repo,  
-                  workflow_id: 'Build_Deploy.yml',  
-                  ref: 'main',  
-                  inputs: {  
-                    repo_name: repo,  
-                    environment: environment
-                  }  
-                });
+                  $response = Invoke-RestMethod -Uri $url -Method Post -Headers @{
+                      "Authorization" = "Bearer $token"
+                      "Accept"        = "application/vnd.github.v3+json"
+                      "Content-Type"  = "application/json"
+                  } -Body $body
 
-                console.log(`✅ Triggered workflow for ${repo}`);
-                results.push(`${repo}: ✅ Triggered`);
-              } catch (error) {  
-                console.error(`❌ Failed to trigger ${repo}: ${error.message}`);
-                results.push(`${repo}: ❌ Failed`);
-              }  
-            }  
+                  Write-Output "✅ Triggered workflow for $repoName"
+                  $results += "$repoName: ✅ Triggered"
+              } catch {
+                  Write-Output "❌ Failed to trigger $repoName - $($_.Exception.Message)"
+                  $results += "$repoName: ❌ Failed"
+              }
+          }
 
-            // Set output as a single-line JSON string
-            core.setOutput("build_results", JSON.stringify(results));
+          # Save results to a file
+          $resultString = $results -join "`n"
+          echo "build_results=$resultString" >> $env:GITHUB_OUTPUT
 
   Email_Notification:  
     runs-on: self-hosted  
@@ -60,8 +73,20 @@ jobs:
     steps:  
       - name: Send Email Notification  
         if: always()  
-        shell: bash  
+        shell: pwsh  
         run: |  
-          echo -e "Build Results:\n${{ needs.Trigger_Builds.outputs.build_results }}" > build_status.txt
+          $statusSummary = "${{ needs.Trigger_Builds.outputs.build_results }}"
+          $smtpServer = "x2.eduneering.com"
+          $smtpFrom = "rootdrop@eduneering.com"
+          $smtpTo = "zeeshan.yousaf@ul.com"
+          $smtpPort = "25"
+          $subject = "INT - CI/CD Build Status"
+          $body = @"
+          INT CI/CD Pipeline has been completed.
 
-          #mail -s "INT - CI/CD Build Status" user@example.com < build_status.txt
+          Summary:
+
+          $statusSummary
+          "@
+
+          #Send-MailMessage -SmtpServer $smtpServer -Port $smtpPort -From $smtpFrom -To $smtpTo -Subject $subject -Body $body
