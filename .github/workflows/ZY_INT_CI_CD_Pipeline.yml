@@ -28,7 +28,7 @@ jobs:
 
             let results = [];
 
-            const environment = process.env.INPUT_ENVIRONMENT;
+            let environment = "${{ inputs.environment }}";  // Direct string input from GitHub Actions
 
             for (const repo of repos) {  
               try {
@@ -51,7 +51,8 @@ jobs:
               }  
             }  
 
-            core.setOutput("build_results", results.join("\n"));
+            // Set output as a single-line JSON string
+            core.setOutput("build_results", JSON.stringify(results));
 
   Email_Notification:  
     runs-on: self-hosted  
