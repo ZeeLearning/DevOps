@@ -28,6 +28,8 @@ jobs:
 
             let results = [];
 
+            const environment = process.env.INPUT_ENVIRONMENT;
+
             for (const repo of repos) {  
               try {
                 await github.rest.actions.createWorkflowDispatch({  
@@ -37,7 +39,7 @@ jobs:
                   ref: 'main',  
                   inputs: {  
                     repo_name: repo,  
-                    environment: 'INT'
+                    environment: environment
                   }  
                 });
 
