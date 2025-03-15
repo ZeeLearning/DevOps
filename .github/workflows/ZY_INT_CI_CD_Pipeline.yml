@@ -102,7 +102,7 @@ jobs:
             Write-Output "✅ All workflows completed!"
 
             # Join results and escape newlines
-            $resultString = $results -join ", "
+            $resultString = ($results.GetEnumerator() | ForEach-Object { "$($_.Key): $($_.Value)" }) -join ", "
             $resultString = $resultString -replace "`r?`n", ""
 
             # Set GitHub Action output
