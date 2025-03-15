@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Trigger Build and Deploy Workflow  
-        uses: actions/github-script@v6 
+        uses: actions/github-script@v3 
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}  # Use the PAT secret here
         with:  
