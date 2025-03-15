@@ -1,0 +1,92 @@
+name: ZY - MATRIX - INT - CI/CD Pipeline
+
+on:  
+  workflow_dispatch:  
+    inputs:  
+      environment:  
+        description: 'Environment'  
+        required: true  
+        type: choice  
+        options:  
+          - 'INT'  
+
+jobs:  
+  INT_CI_CD_Pipeline:  
+    runs-on: self-hosted  
+    strategy:  
+      matrix:  
+        repo_name:  
+          - 'CoreLearner'
+          - 'DemoNotCore'  
+
+    outputs:
+      repo_statuses: ${{ steps.set_status.outputs.statuses }}
+
+    steps:
+      - name: Trigger Build and Deploy Workflow  
+        uses: actions/github-script@v4  
+        with:  
+          script: |  
+            const response = await github.actions.createWorkflowDispatch({  
+              owner: context.repo.owner,  
+              repo: context.repo.repo,  
+              workflow_id: 'Build_Deploy.yml',  
+              ref: 'main',  
+              inputs: {  
+                repo_name: '${{ matrix.repo_name }}',  
+                environment: 'INT'  
+              }  
+            });  
+            console.log(response);  
+
+      - name: Capture Build Status  
+        id: get_build_status  
+        run: |
+          echo "status=${{ job.status }}" >> $GITHUB_ENV
+          echo "repo=${{ matrix.repo_name }} status=${{ job.status }}"
+
+      - name: Set Build Status as Output
+        id: set_status
+        run: |
+          echo "::set-output name=statuses::$(echo '${{ job.status }}' | jq -n --arg repo "${{ matrix.repo_name }}" --arg status "${{ job.status }}" '{($repo): $status}')"
+        
+  Email_Notification:  
+    runs-on: self-hosted  
+    needs: INT_CI_CD_Pipeline  
+    steps:  
+      - name: Combine and Send Email Notification  
+        if: always()  
+        shell: powershell  
+        run: |
+          $statusSummary = ""  
+          $processedRepos = @{}    
+
+          # Get the statuses from the INT_CI_CD_Pipeline job output
+          $repoStatuses = ${{ needs.INT_CI_CD_Pipeline.outputs.repo_statuses }}
+          
+          foreach ($repoStatus in $repoStatuses) {
+            $repoKey = $repoStatus.Key
+            $buildStatus = $repoStatus.Value
+
+            if (-not $processedRepos.ContainsKey($repoKey)) {
+              $statusSummary += "- $repoKey: $buildStatus`n"
+              $processedRepos[$repoKey] = $true
+            }
+          }
+
+          #$smtpServer = "x2.eduneering.com"  
+          #$smtpFrom = "rootdrop@eduneering.com"  
+          #$smtpTo = "zeeshan.yousaf@ul.com"  
+          #$smtpPort = "25"  
+          #$subject = "INT - CI/CD"  
+          #$body = @"
+
+          INT CI/CD Pipeline has been completed.  
+
+          Summary:  
+
+          $statusSummary  
+
+          "@  
+
+          #Send-MailMessage -SmtpServer $smtpServer -Port $smtpPort -From $smtpFrom -To $smtpTo -Subject $subject -Body $body
