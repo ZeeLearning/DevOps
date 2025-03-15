@@ -18,7 +18,7 @@ jobs:
     runs-on: self-hosted
     steps:
       - name: Trigger Workflows  
-        uses: actions/github-script@v6  
+        uses: actions/github-script@v4  
         with:  
           script: |  
             const repos = [
