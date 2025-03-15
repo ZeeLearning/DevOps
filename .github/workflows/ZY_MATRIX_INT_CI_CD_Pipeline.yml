@@ -29,6 +29,7 @@ jobs:
           script: |  
             const response = await github.actions.createWorkflowDispatch({  
               owner: 'ZeeLearning',  
+              token: '${{ secrets.PAT_TOKEN }}',
               repo: 'DevOps',  
               workflow_id: 'Build_Deploy.yml',  
               ref: 'main',  
