@@ -1,0 +1,71 @@
+name: Build/Deploy DB 
+
+on:
+    workflow_dispatch:
+        inputs:
+            db_name:
+                description: 'Database Name'
+                required: true
+                type: choice
+                options:
+                    - 'Compliancewire DB'
+                    - 'CWWorking DB'
+                    - 'CWHistory DB'
+                    - 'CWMeta DB'
+                    - 'CWLog DB'
+                    - 'Complkiancewire Replica DB'
+
+            environment:
+                description: 'Environment'
+                required: true 
+                type: choice
+                options:
+                    - 'INT'
+                    - 'QAProd'
+                    - 'NewQA'
+                    - 'SprintQA'
+                    - 'LT'
+                    - 'Production'
+# Define environment variables that can be used in the workflow. 
+env:
+    REPO_URL: "https://${{ secrets.USER_NAME }}:${{ secrets.PAT_TOKEN }}@github.com/Underwriters-Labs/CW.CWTransactionDBs.git"
+    WORKSPACE_DIRECTORY: ${{ github.workspace }}
+    REPO_NAME: "CW.CWTransactionDBs"
+
+jobs:
+    Checkout_Target_Repo:
+        runs-on: self-hosted
+        environment: ${{ github.event.inputs.environment }}
+        steps:
+            # Checkout the target repo
+            - name: Check out the target repo 
+              run: |
+                git clone --branch ${{ vars.BRANCH }} ${{ env.REPO_URL}} ${{ env.REPO_NAME }}
+                cd ${{ env.REPO_NAME }}
+                echo "Cloned repository: ${{ env.REPO_NAME }} (branch: ${{ vars.BRANCH }})"
+                git checkout ${{ vars.BRANCH }}
+                echo "Checked out branch: ${{ vars.BRANCH }}"
+                git branch
+                echo ${{ env.WORKSPACE_DIRECTORY }}
+                Write-Host "Environment: ${{ github.event.inputs.Environment }}"
+    
+    Build_Deploy_DB:
+        runs-on: self-hosted
+        environment: ${{ github.event.inputs.Environment }}
+        needs: Checkout_Target_Repo
+        steps: 
+            - name: Deploy DB 
+              run: |
+                echo "###### DB deployement to ${{ vars.DB_TARGET_SERVER }}, ${{ vars.DB_TARGET_PORT }} ###########"
+                net use j: "\\CWUATSQL08\Eduneering\DBDeployINT_Git" /persistent:no
+                j:
+                dir
+                
+                deploy.cmd ${{ github.event.inputs.db_name }} ${{ vars.DB_TARGET_SERVER }} ${{ vars.DB_TARGET_PORT }} ${{ vars.BRANCH }} ${{ secrets.USER_NAME }} ${{ secrets.PAT_TOKEN}}
+
+                net use j: /d /y 
+
+    
+
+            
+            
