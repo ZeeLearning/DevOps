@@ -1,0 +1,14 @@
+name: summary 
+
+on: 
+    workflow_dispatch:
+
+jobs:
+    summaries:
+        runs-on: self-hosted
+
+        steps:
+            - name: Show GitHub Summary
+              run: |
+                echo "### Summary" >> $GITHUB_STEP_SUMMARY
+    
