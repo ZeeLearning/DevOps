@@ -90,11 +90,7 @@ jobs:
                     echo "No solution file found." 
                     exit 1 
                 } 
-
-            # - name: Show Solution Name Output
-            #   run: |
-            #     echo "Solution name set as output: ${{ steps.get_solution_name.outputs.solutionName }}"
-    
+    # Restore NuGet packages
     NuGet_Restore:
         runs-on: self-hosted
         needs: [Checkout_Target_Repo] 
@@ -105,9 +101,6 @@ jobs:
             - name: Install NuGet  
               uses: NuGet/setup-nuget@v1 
 
-            # - name: Clear NuGet Cache 
-            #   run: nuget locals all -clear 
-
             - name: Setup NuGet Source  
               run: |  
                 if (-not (nuget sources list | Select-String -Pattern "UL NuGet")) { 
@@ -115,10 +108,6 @@ jobs:
                 } else { 
                     Write-Output "NuGet source 'UL NuGet' already exists." 
                 } 
-
-            # - name: Debug Solution Name 
-            #   run: | 
-            #     echo "Solution Name in NuGet_Restore: ${{ env.SOLUTION_NAME }}" 
 
             # Restore NuGet packages based on project type 
             - name: Restore NuGet Packages 
@@ -320,6 +309,28 @@ jobs:
               run: |
                 echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
                 msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM_NOSPACE }}" /p:MsDeployServiceUrl=${{ vars.MT_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="ALPHA\svc_devapp" /p:password="D3vapp!!" /p:OutDir=${{ env.OUT_DIR }}
+  
+            - name: Generate Deployment Summary 
+              if: ${{ always() }} # Ensure this step runs even if previous steps fail
+              run: | 
+                $summaryFile = "${{ github.workspace }}/deployment_summary.md"
+                "### :rocket: Deployment Summary" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Repository:** ${{ github.event.inputs.repo_name }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Branch:** ${{ vars.BRANCH }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Configuration:** ${{ vars.CONFIGURATION }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Environment:** ${{ github.event.inputs.environment }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Build Number:** ${{ vars.BUILD_NUMBER }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+  
+            - name: Append Deployment Summary to Job Summary
+              if: ${{ always() }} # Ensure this step runs even if previous steps fail
+              run: |
+                $summaryFile = "${{ github.workspace }}/deployment_summary.md"
+                $content = Get-Content $summaryFile
+                $content | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              
+            - name: Print Deployment Summary 
+              if: ${{ always() }} # Ensure this step runs even if previous steps fail
+              run: Get-Content ${{ github.workspace }}/deployment_summary.md
   
     Clean_Up:
         runs-on: self-hosted
