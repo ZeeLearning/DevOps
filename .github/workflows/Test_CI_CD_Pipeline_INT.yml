@@ -27,7 +27,7 @@ jobs:
         runs-on: self-hosted
         needs: [Checkout] # Ensure this job runs after the Checkout job
         outputs:
-            BUILD_STATUS_CORELEARNER: ${{ steps.get_build_status_corelearner.outputs.buildStatusAphrodite }}
+            BUILD_STATUS_CORELEARNER: ${{ steps.get_build_status_corelearner.outputs.buildStatusCoreLearner }}
         steps:
             - name: Trigger Build/Deploy Workflow for Aphrodite
               id: trigger_workflow_corelearner
@@ -50,7 +50,7 @@ jobs:
         runs-on: self-hosted
         needs: [Checkout, CoreLearner] # Ensure this job runs after the Checkout job
         outputs:
-             BUILD_STATUS_DEMONOTCORE: ${{ steps.get_build_status_demonotcore.outputs.buildStatusAphrodite }}
+             BUILD_STATUS_DEMONOTCORE: ${{ steps.get_build_status_demonotcore.outputs.buildStatusDemoNotCore }}
         steps:
             - name: Trigger Build/Deploy Workflow for Aphrodite
               id: trigger_workflow_demonotcore
