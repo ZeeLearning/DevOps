@@ -10,9 +10,6 @@ Description: This script triggers a GitHub Actions workflow using the GitHub API
 Usage: .\Trigger_WorkFlow_From_GitHub_API.ps1 -repo_name "your_repo_name" -environment "your_environment" -pat_token "your_pat_token" 
 #> 
 
-# Ensure TLS 1.2 is used for secure connections 
-
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
 
 # Define parameters  
 
@@ -23,11 +20,14 @@ param (
 
 ) 
 
+# Ensure TLS 1.2 is used for secure connections 
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
+
 # Define variables 
 
-$owner = "Underwriters-Labs"  # Replace with your GitHub username or org name  
-$repo = "CW.DevOps"    # Repository where the workflow file is located 
-$workflow_file = "Build_Deploy_Env_GitHub.yml"  # Workflow file name 
+$owner = "ZeeLearning"  # Replace with your GitHub username or org name  
+$repo = "DevOps"    # Repository where the workflow file is located 
+$workflow_file = "Build_Deploy.yml"  # Workflow file name 
 $branch = "main"       # The branch to trigger the workflow 
 
 # API URLs  
