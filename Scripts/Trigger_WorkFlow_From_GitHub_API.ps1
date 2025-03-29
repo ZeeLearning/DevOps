@@ -21,7 +21,7 @@ param (
 ) 
 
 # Ensure TLS 1.2 is used for secure connections 
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
+# [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
 
 # Define variables 
 
