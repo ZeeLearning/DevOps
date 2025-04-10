@@ -39,7 +39,7 @@ jobs:
                 echo "PS Version: $PSVersionTable.PSVersion"
                 cd ${{ github.workspace }}\Scripts
 
-                .\Trigger_WorkFlow_From_GitHub_API_copy.ps1 -repo_name 'CoreLearner' -environment 'INT' runner_label = 'ZLENOVO_2' -pat_token '${{ secrets.PAT_TOKEN }}'
+                .\Trigger_WorkFlow_From_GitHub_API_copy.ps1 -repo_name 'CoreLearner' -environment 'INT' -runner_label 'ZLENOVO_2' -pat_token '${{ secrets.PAT_TOKEN }}'
 
             - name: Capture Build Status for CoreLearner
               id: get_build_status_corelearner
@@ -60,7 +60,7 @@ jobs:
               run: |
                 # Assuming you chose runner-one earlier
                 cd ${{ github.workspace }}\Scripts
-                .\Trigger_WorkFlow_From_GitHub_API_copy.ps1 -repo_name 'DemoNotCore' -environment 'INT' runner_label = 'ZLENOVO_2' -pat_token '${{ secrets.PAT_TOKEN }}'
+                .\Trigger_WorkFlow_From_GitHub_API_copy.ps1 -repo_name 'DemoNotCore' -environment 'INT' -runner_label 'ZLENOVO_2' -pat_token '${{ secrets.PAT_TOKEN }}'
 
             - name: Capture Build Status for DemoNotCore
               id: get_build_status_demonotcore
