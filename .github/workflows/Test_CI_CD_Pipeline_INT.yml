@@ -25,6 +25,7 @@ jobs:
     # Trigger Build/Deploy for Aphrodite
     CoreLearner:
         runs-on: [self-hosted, ZLENOVO_1]
+        if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout] # Ensure this job runs after the Checkout job
         outputs:
             BUILD_STATUS_CORELEARNER: ${{ steps.get_build_status_corelearner.outputs.buildStatusCoreLearner }}
@@ -50,6 +51,7 @@ jobs:
 
     DemoNotCore:
         runs-on: [self-hosted, ZLENOVO_1]
+        if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout, CoreLearner] # Ensure this job runs after the Checkout job
         outputs:
              BUILD_STATUS_DEMONOTCORE: ${{ steps.get_build_status_demonotcore.outputs.buildStatusDemoNotCore }}
