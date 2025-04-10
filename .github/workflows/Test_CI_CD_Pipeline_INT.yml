@@ -17,14 +17,14 @@ on:
 jobs:
     # Checkout the repository 
     Checkout:
-        runs-on: [self-hosted, ZLENOVO_1]
+        runs-on: ZLENOVO_1
         steps:
             - name: Checkout Repository
               uses: actions/checkout@v4
               
     # Trigger Build/Deploy for Aphrodite
     CoreLearner:
-        runs-on: [self-hosted, ZLENOVO_1]
+        runs-on: ZLENOVO_1
         if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout] # Ensure this job runs after the Checkout job
         outputs:
@@ -50,7 +50,7 @@ jobs:
                 echo "buildStatusCoreLearner=$buildStatusCoreLearner" >> $env:GITHUB_OUTPUT 
 
     DemoNotCore:
-        runs-on: [self-hosted, ZLENOVO_1]
+        runs-on: ZLENOVO_1
         if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout, CoreLearner] # Ensure this job runs after the Checkout job
         outputs:
@@ -106,7 +106,7 @@ jobs:
    
     # Aggregate Build Statuses 
     Aggregate_Build_Statuses:
-        runs-on: [self-hosted, ZLENOVO_1]
+        runs-on: ZLENOVO_1
         needs: [CoreLearner, DemoNotCore] # Ensure this job runs after all previous jobs
         if: always() # Ensure this job runs even if previous jobs fail
         steps:
