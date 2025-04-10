@@ -16,7 +16,7 @@ Usage: .\Trigger_WorkFlow_From_GitHub_API.ps1 -repo_name "your_repo_name" -envir
 param ( 
     [string] $repo_name, 
     [string] $environment, 
-    [string]$runner_label, # NEW PARAM
+    [string] $runner_label, # NEW PARAM
     [string] $pat_token 
 
 ) 
