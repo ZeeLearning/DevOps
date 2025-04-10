@@ -18,6 +18,13 @@ on:
                 options:
                   - 'INT'
                   - 'QA'
+            runner_label:
+                description: 'self-hosted runner'
+                required: true
+                type: choice
+                options:
+                  - 'ZLENOVO_1'
+                  - 'ZLENOVO_2'
 
 # Define environment variables that can be used in the workflow. 
 env:
@@ -28,7 +35,8 @@ env:
 
 jobs:
     Checkout_Target_Repo:
-        runs-on: self-hosted
+        runs-on: ${{ format('self-hosted,{0}', github.event.inputs.runner_label) }}
+        if: always() # Ensure this job runs even if the previous jobs fail
         environment: ${{ github.event.inputs.environment }}
         # Set the output for the solution name
         outputs:
@@ -63,7 +71,8 @@ jobs:
                 echo "Solution path set as output: ${{ steps.get_solution_name.outputs.solutionPath }}"
 
     NuGet_Restore:
-        runs-on: self-hosted
+        runs-on: ${{ format('self-hosted,{0}', github.event.inputs.runner_label) }}
+        if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout_Target_Repo]
         environment: ${{ github.event.inputs.environment }}
         steps:
@@ -82,7 +91,8 @@ jobs:
                 echo "Configuration - ${{ vars.CONFIGURATION }}"
 
     Build:
-        runs-on: self-hosted
+        runs-on: ${{ format('self-hosted,{0}', github.event.inputs.runner_label) }}
+        if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout_Target_Repo, NuGet_Restore]
         environment: ${{ github.event.inputs.environment }}
         steps:
@@ -101,7 +111,8 @@ jobs:
                 echo "Configuration - ${{ vars.CONFIGURATION }}"
   
     Clean_Up:
-        runs-on: self-hosted
+        runs-on: ${{ format('self-hosted,{0}', github.event.inputs.runner_label) }}
+        if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout_Target_Repo, NuGet_Restore, Build]
         steps:
             # Clean the target repo
