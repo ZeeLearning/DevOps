@@ -17,14 +17,14 @@ on:
 jobs:
     # Checkout the repository 
     Checkout:
-        runs-on: [self-hosted, ZLENOVO_1]
+        runs-on: [self-hosted, ZLENOVO_2]
         steps:
             - name: Checkout Repository
               uses: actions/checkout@v4
               
     # Trigger Build/Deploy for Aphrodite
     CoreLearner:
-        runs-on: [self-hosted, ZLENOVO_1]
+        runs-on: [self-hosted, ZLENOVO_2]
         if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout] # Ensure this job runs after the Checkout job
         outputs:
@@ -36,7 +36,7 @@ jobs:
                 echo ${{ github.workspace }}
                 $PSVersionTable.PSVersion
                 # Assuming you chose runner-one earlier
-                $environmentInput = 'INT-ZLENOVO_1'
+                $environmentInput = 'INT-ZLENOVO_2'
                 echo "PS Version: $PSVersionTable.PSVersion"
                 cd ${{ github.workspace }}\Scripts
 
@@ -50,7 +50,7 @@ jobs:
                 echo "buildStatusCoreLearner=$buildStatusCoreLearner" >> $env:GITHUB_OUTPUT 
 
     DemoNotCore:
-        runs-on: [self-hosted, ZLENOVO_1]
+        runs-on: [self-hosted, ZLENOVO_2]
         if: always() # Ensure this job runs even if the previous jobs fail
         needs: [Checkout, CoreLearner] # Ensure this job runs after the Checkout job
         outputs:
@@ -60,7 +60,7 @@ jobs:
               id: trigger_workflow_demonotcore
               run: |
                 # Assuming you chose runner-one earlier
-                $environmentInput = 'INT-ZLENOVO_1'
+                $environmentInput = 'INT-ZLENOVO_2'
                 cd ${{ github.workspace }}\Scripts
                 .\Trigger_WorkFlow_From_GitHub_API.ps1 -repo_name 'DemoNotCore' -environment $environmentInput -pat_token '${{ secrets.PAT_TOKEN }}'
 
@@ -106,7 +106,7 @@ jobs:
    
     # Aggregate Build Statuses 
     Aggregate_Build_Statuses:
-        runs-on: [self-hosted, ZLENOVO_1]
+        runs-on: [self-hosted, ZLENOVO_2]
         needs: [CoreLearner, DemoNotCore] # Ensure this job runs after all previous jobs
         if: always() # Ensure this job runs even if previous jobs fail
         steps:
