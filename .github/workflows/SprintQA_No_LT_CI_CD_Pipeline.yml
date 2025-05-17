@@ -1,0 +1,659 @@
+# This workflows triggers "Build_Deploy" and "Build_Deploy_DB" workflows for all repositories in the SprintQA environment.
+
+name: SprintQA - No LT - CI/CD Pipeline 
+
+on: 
+  # GitHub handles cron schedules in **UTC (Coordinated Universal Time)**. 
+  # When defining a `cron` schedule in a GitHub Actions workflow, you should always specify the time in UTC.
+  # Make sure it is not overlapping with schedule of other pipelines (Recommendation: atleast 1.5 hours gap)
+  schedule: 
+    - cron: '30 6,18 * * 1-5' # 1:30 AM, 1:30 PM
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true 
+        type: choice
+        options:
+          - 'SprintQA'
+
+env: 
+  WORKFLOW_FRONTEND_FILE_NAME: "Build_Deploy.yml" # Name of the workflow file to trigger for frontend repos
+  WORKFLOW_DB_FILE_NAME: "Build_Deploy_DB.yml" # Name of the workflow file to trigger for DB repos
+  ROBOCOPY_PATH: "\\\\CWStaging01\\Builds\\RoboCopy\\SprintQA" 
+
+jobs:
+  # Checkout the repository
+  Checkout:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+  
+  # Trigger Build/Deploy for CWLog DB
+  CWLog:
+    runs-on: self-hosted
+    needs: [Checkout] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWLOG: ${{ steps.get_build_status_cwlog.outputs.buildStatusCWLog }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CWLog
+        #id: trigger_workflow_aphrodite 
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CWLog DB' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for CWLog
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwlog 
+        run: |
+          $buildStatusCWLog = '${{ job.status}}'
+          echo "Build Status for CWLog: $buildStatusCWLog"
+          echo "buildStatusCWLog=$buildStatusCWLog" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for CWWorking DB
+  CWWorking:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWWORKING: ${{ steps.get_build_status_cwworking.outputs.buildStatusCWWorking }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CWWorking
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CWWorking DB' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for CWWorking
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwworking
+        run: |
+          $buildStatusCWWorking = '${{ job.status}}'
+          echo "Build Status for CWWorking: $buildStatusCWWorking"
+          echo "buildStatusCWWorking=$buildStatusCWWorking" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for CWMeta DB
+  CWMeta:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWMETA: ${{ steps.get_build_status_cwmeta.outputs.buildStatusCWMeta }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CWMeta
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CWMeta DB' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for CWMeta
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwmeta
+        run: |
+          $buildStatusCWMeta = '${{ job.status}}'
+          echo "Build Status for CWMeta: $buildStatusCWMeta"
+          echo "buildStatusCWMeta=$buildStatusCWMeta" >> $env:GITHUB_OUTPUT
+    
+  # Trigger Build/Deploy for CWHitory DB
+  CWHistory:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWHISTORY: ${{ steps.get_build_status_cwhistory.outputs.buildStatusCWHistory }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CWHitory
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CWHistory DB' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for CWHistory
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwhistory
+        run: |
+          $buildStatusCWHistory = '${{ job.status}}'
+          echo "Build Status for CWHistory: $buildStatusCWHistory"
+          echo "buildStatusCWHistory=$buildStatusCWHistory" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for Compliancewire DB
+  Compliancewire:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_COMPLIANCEWIRE: ${{ steps.get_build_status_compliancewire.outputs.buildStatusCompliancewire }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Compliancewire
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'Compliancewire DB' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for Compliancewire
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_compliancewire
+        run: |
+          $buildStatusCompliancewire = '${{ job.status}}'
+          echo "Build Status for Compliancewire: $buildStatusCompliancewire"
+          echo "buildStatusCompliancewire=$buildStatusCompliancewire" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for Aphrodite
+  Aphrodite:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_APHRODITE: ${{ steps.get_build_status_aphrodite.outputs.buildStatusAphrodite }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Aphrodite
+        id: trigger_workflow_aphrodite 
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Aphrodite' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for Aphrodite
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_aphrodite 
+        run: |
+          $buildStatusAphrodite = '${{ job.status}}'
+          echo "Build Status for Aphrodite: $buildStatusAphrodite"
+          echo "buildStatusAphrodite=$buildStatusAphrodite" >> $env:GITHUB_OUTPUT 
+
+  # Trigger Build/Deploy for Apollo 
+  Apollo:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite]
+    if: always() # Ensure this job runs even if the previous job fails
+    outputs:
+        BUILD_STATUS_APOLLO: ${{ steps.get_build_status_apollo.outputs.buildStatusApollo }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Apollo
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Apollo' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for Apollo
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_apollo 
+        run: |
+          $buildStatusApollo = '${{ job.status}}'
+          echo "Build Status for Apollo: $buildStatusApollo"
+          echo "buildStatusApollo=$buildStatusApollo" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for Athena 
+  Athena: 
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_ATHENA: ${{ steps.get_build_status_athena.outputs.buildStatusAthena }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Athena
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Athena' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for Athena
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_athena 
+        run: |
+          $buildStatusAthena = '${{ job.status}}'
+          echo "Build Status for Athena: $buildStatusAthena"
+          echo "buildStatusAthena=$buildStatusAthena" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for Chronos.Admin 
+  Chronos_Admin:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CHRONOS_ADMIN: ${{ steps.get_build_status_chronos_admin.outputs.buildStatusChronosAdmin }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Chronos.Admin
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Chronos-Admin' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      
+      - name: Capture Build Status for Chronos.Admin
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_chronos_admin 
+        run: |
+          $buildStatusChronosAdmin = '${{ job.status}}'
+          echo "Build Status for Chronos.Admin: $buildStatusChronosAdmin"
+          echo "buildStatusChronosAdmin=$buildStatusChronosAdmin" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for Chronos.CW2 
+  Chronos_CW2:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CHRONOS_CW2: ${{ steps.get_build_status_chronos_cw2.outputs.buildStatusChronosCW2 }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Chronos.CW2
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Chronos' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for Chronos.CW2
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_chronos_cw2 
+        run: |
+          $buildStatusChronosCW2 = '${{ job.status}}'
+          echo "Build Status for Chronos.CW2: $buildStatusChronosCW2"
+          echo "buildStatusChronosCW2=$buildStatusChronosCW2" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for ClientWebREST_API
+  ClientWebREST_API:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CLIENTWEBREST_API: ${{ steps.get_build_status_clientwebrest_api.outputs.buildStatusClientWebREST_API }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for ClientWebREST_API
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.ClientWebREST_API' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'
+        
+      - name: Capture Build Status for ClientWebREST_API
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_clientwebrest_api 
+        run: |
+          $buildStatusClientWebREST_API = '${{ job.status}}'
+          echo "Build Status for ClientWebREST_API: $buildStatusClientWebREST_API"
+          echo "buildStatusClientWebREST_API=$buildStatusClientWebREST_API" >> $env:GITHUB_OUTPUT 
+    
+  # Trigger Build/Deploy for ComplianceWire 1.0 
+  ComplianceWire_1_0:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_COMPLIANCEWIRE_1_0: ${{ steps.get_build_status_compliancewire_1_0.outputs.buildStatusComplianceWire1_0 }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for ComplianceWire 1.0
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.ComplianceWire-1.0' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'        
+      
+      - name: Capture Build Status for ComplianceWire 1.0
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_compliancewire_1_0 
+        run: |
+          $buildStatusComplianceWire1_0 = '${{ job.status}}'
+          echo "Build Status for ComplianceWire 1.0: $buildStatusComplianceWire1_0"
+          echo "buildStatusComplianceWire1_0=$buildStatusComplianceWire1_0" >> $env:GITHUB_OUTPUT
+    
+  # Trigger Build/Deploy for CWAdmin 
+  CWAdmin:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWADMIN: ${{ steps.get_build_status_cwadmin.outputs.buildStatusCWAdmin }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CW.Admin  
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Admin' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'        
+           
+      - name: Capture Build Status for CWAdmin
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwadmin 
+        run: |
+          $buildStatusCWAdmin = '${{ job.status}}'
+          echo "Build Status for CWAdmin: $buildStatusCWAdmin"
+          echo "buildStatusCWAdmin=$buildStatusCWAdmin" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for CWLearner 
+  CWLearner:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWLEARNER: ${{ steps.get_build_status_cwlearner.outputs.buildStatusCWLearner }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CW.Learner 
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Learner' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'        
+           
+      
+      - name: Capture Build Status for CWLearner
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwlearner 
+        run: |
+          $buildStatusCWLearner = '${{ job.status}}'
+          echo "Build Status for CWLearner: $buildStatusCWLearner"
+          echo "buildStatusCWLearner=$buildStatusCWLearner" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for CWWebApi 
+  CWWebApi:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWWEBAPI: ${{ steps.get_build_status_cwwebapi.outputs.buildStatusCWWebApi }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CW.WebApi
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.CWWebApi' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'        
+           
+      - name: Capture Build Status for CWWebApi
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwwebapi 
+        run: |
+          $buildStatusCWWebApi = '${{ job.status}}'
+          echo "Build Status for CWWebApi: $buildStatusCWWebApi"
+          echo "buildStatusCWWebApi=$buildStatusCWWebApi" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for CWWebApi Router 
+  CWWebApi_Router:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWWEBAPI_ROUTER: ${{ steps.get_build_status_cwwebapi_router.outputs.buildStatusCWWebApiRouter }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CW.CWWebApi-Router
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.CWWebApi-Router' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'        
+           
+      
+      - name: Capture Build Status for CWWebApi Router
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwwebapi_router 
+        run: |
+          $buildStatusCWWebApiRouter = '${{ job.status}}'
+          echo "Build Status for CWWebApi Router: $buildStatusCWWebApiRouter"
+          echo "buildStatusCWWebApiRouter=$buildStatusCWWebApiRouter" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for Hyperion 
+  Hyperion:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_HYPERION: ${{ steps.get_build_status_hyperion.outputs.buildStatusHyperion }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Hyperion
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Hyperion' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'        
+                
+      - name: Capture Build Status for Hyperion
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_hyperion 
+        run: |
+          $buildStatusHyperion = '${{ job.status}}'
+          echo "Build Status for Hyperion: $buildStatusHyperion"
+          echo "buildStatusHyperion=$buildStatusHyperion" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for PSTools 
+  PSTools:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_PSTOOLS: ${{ steps.get_build_status_pstools.outputs.buildStatusPSTools }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for PSTools
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.PSTools' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'                      
+      
+      - name: Capture Build Status for PSTools
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_pstools 
+        run: |
+          $buildStatusPSTools = '${{ job.status}}'
+          echo "Build Status for PSTools: $buildStatusPSTools"
+          echo "buildStatusPSTools=$buildStatusPSTools" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for ReportEngine
+  ReportEngine:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_REPORTENGINE: ${{ steps.get_build_status_reportengine.outputs.buildStatusReportEngine }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for ReportEngine
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.ReportEngine' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'                      
+      
+      - name: Capture Build Status for ReportEngine
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_reportengine 
+        run: |
+          $buildStatusReportEngine = '${{ job.status}}'
+          echo "Build Status for ReportEngine: $buildStatusReportEngine"
+          echo "buildStatusReportEngine=$buildStatusReportEngine" >> $env:GITHUB_OUTPUT
+  
+  # Trigger Build/Deploy for Zeus 
+  Zeus:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools, ReportEngine] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_ZEUS: ${{ steps.get_build_status_zeus.outputs.buildStatusZeus }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Zeus
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CW.Zeus' -environment 'SprintQA' -workflow_file ${{ env.WORKFLOW_FRONTEND_FILE_NAME }} -pat_token '${{ secrets.PAT_TOKEN }}'                      
+      
+      - name: Capture Build Status for Zeus
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_zeus 
+        run: |
+          $buildStatusZeus = '${{ job.status}}'
+          echo "Build Status for Zeus: $buildStatusZeus"
+          echo "buildStatusZeus=$buildStatusZeus" >> $env:GITHUB_OUTPUT
+    
+  # Robocopy - CWSprintQAMT02
+  Robocopy_CWSprintQAMT02:
+    runs-on: self-hosted
+    environment: ${{ github.event.inputs.environment }}
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools, ReportEngine, Zeus] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWSprintQAMT02: ${{ steps.get_build_status_cwsprintqamt02.outputs.buildStatusCWSprintQAMT02 }}
+    steps:
+      - name: Robocopy - CWSprintQAMT02
+        run: |
+          ${{ env.ROBOCOPY_PATH}}\RoboCopySprintQAMT02.bat
+
+          $EXIT_CODE = $LASTEXITCODE
+          if ($EXIT_CODE -le 3) {
+            echo "Robocopy completed with exit code $EXIT_CODE (Success or minor issues)."
+            exit 0 # Force a successful exit for GitHub Actions 
+          }
+          else {
+            echo "Robocopy failed with exit code $EXIT_CODE." 
+            exit $EXIT_CODE 
+          }
+
+      - name: Capture Build Status for CWSprintQAMT02
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwsprintqamt02
+        run: |
+          $buildStatusCWSprintQAMT02 = '${{ job.status}}'
+          echo "Build Status for CWSprintQAMT02: $buildStatusCWSprintQAMT02"
+          echo "buildStatusCWSprintQAMT02=$buildStatusCWSprintQAMT02" >> $env:GITHUB_OUTPUT
+  
+  #Robocopy - CWSprintQAWeb02
+  Robocopy_CWSprintQAWeb02:
+    runs-on: self-hosted
+    environment: ${{ github.event.inputs.environment }} 
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools, ReportEngine, Zeus, Robocopy_CWSprintQAMT02] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWSprintQAWeb02: ${{ steps.get_build_status_cwsprintqaweb02.outputs.buildStatusCWSprintQAWeb02 }}
+    steps:
+      - name: Robocopy - CWSprintQAWeb02
+        run: |
+          ${{ env.ROBOCOPY_PATH}}\RoboCopySprintQAWeb02.bat
+
+          $EXIT_CODE = $LASTEXITCODE
+          if ($EXIT_CODE -le 3) {
+            echo "Robocopy completed with exit code $EXIT_CODE (Success or minor issues)."
+            exit 0 # Force a successful exit for GitHub Actions 
+          }
+          else {
+            echo "Robocopy failed with exit code $EXIT_CODE." 
+            exit $EXIT_CODE 
+          }
+
+      - name: Capture Build Status for CWSprintQAWeb02
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwsprintqaweb02
+        run: |
+          $buildStatusCWSprintQAWeb02 = '${{ job.status}}'
+          echo "Build Status for CWSprintQAWeb02: $buildStatusCWSprintQAWeb02"
+          echo "buildStatusCWSprintQAWeb02=$buildStatusCWSprintQAWeb02" >> $env:GITHUB_OUTPUT
+
+  # Email Notification
+  Email_Notification:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools, ReportEngine, Zeus, Robocopy_CWSprintQAMT02, Robocopy_CWSprintQAWeb02] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if previous jobs fail
+    steps:
+      - name: Send Email Notification
+        shell: powershell 
+        run: | 
+          $emailBody = @"
+            <html> 
+              <head> 
+                <style> 
+                  body { 
+                    font-family: Arial, sans-serif; 
+                    background-color: #f4f4f4; 
+                    padding: 20px; 
+                  } 
+                  .container { 
+                    background: #ffffff; 
+                    padding: 20px; 
+                    border-radius: 8px; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+                    } 
+                  .header { 
+                    background-color: #0078D7; 
+                    color: white; 
+                    padding: 10px; 
+                    font-size: 20px; 
+                    text-align: center; 
+                    border-radius: 8px 8px 0 0; 
+                    } 
+                  .content { 
+                    padding: 15px; 
+                    font-size: 16px; 
+                    color: #333333; 
+                    } 
+                  .footer { 
+                    font-size: 14px; 
+                    color: #777777; 
+                    text-align: center; 
+                    padding-top: 15px; 
+                    } 
+                  .status-success { 
+                    font-weight: bold; 
+                    color: green; 
+                    } 
+                  .status-failure { 
+                    font-weight: bold; 
+                    color: red; 
+                    } 
+                  </style> 
+                </head> 
+                <body> 
+                  <div class='container'> 
+                    <div class='header'>SprintQA - CI/CD Pipeline</div> 
+                    <div class='content'> 
+                      <p>Deployment Summary:</p> 
+                      <ul> 
+                        <li>CWLog DB: <span class='status-${{ needs.CWLog.outputs.BUILD_STATUS_CWLOG == 'success' && 'success' || 'failure' }}'>${{ needs.CWLog.outputs.BUILD_STATUS_CWLOG }}</span></li>                      
+                        <li>CWWorking DB: <span class='status-${{ needs.CWWorking.outputs.BUILD_STATUS_CWWORKING == 'success' && 'success' || 'failure' }}'>${{ needs.CWWorking.outputs.BUILD_STATUS_CWWORKING }}</span></li>
+                        <li>CWMeta DB: <span class='status-${{ needs.CWMeta.outputs.BUILD_STATUS_CWMETA == 'success' && 'success' || 'failure' }}'>${{ needs.CWMeta.outputs.BUILD_STATUS_CWMETA }}</span></li>
+                        <li>CWHistory DB: <span class='status-${{ needs.CWHistory.outputs.BUILD_STATUS_CWHISTORY == 'success' && 'success' || 'failure' }}'>${{ needs.CWHistory.outputs.BUILD_STATUS_CWHISTORY }}</span></li>
+                        <li>Compliancewire DB: <span class='status-${{ needs.Compliancewire.outputs.BUILD_STATUS_COMPLIANCEWIRE == 'success' && 'success' || 'failure' }}'>${{ needs.Compliancewire.outputs.BUILD_STATUS_COMPLIANCEWIRE }}</span></li>
+                        <li>Aphrodite: <span class='status-${{ needs.Aphrodite.outputs.BUILD_STATUS_APHRODITE == 'success' && 'success' || 'failure' }}'>${{ needs.Aphrodite.outputs.BUILD_STATUS_APHRODITE }}</span></li>                         
+                        <li>Apollo: <span class='status-${{ needs.Apollo.outputs.BUILD_STATUS_APOLLO == 'success' && 'success' || 'failure' }}'>${{ needs.Apollo.outputs.BUILD_STATUS_APOLLO }}</span></li>
+                        <li>Athena: <span class='status-${{ needs.Athena.outputs.BUILD_STATUS_ATHENA == 'success' && 'success' || 'failure' }}'>${{ needs.Athena.outputs.BUILD_STATUS_ATHENA }}</span></li>
+                        <li>Chronos_Admin: <span class='status-${{ needs.Chronos_Admin.outputs.BUILD_STATUS_CHRONOS_ADMIN == 'success' && 'success' || 'failure' }}'>${{ needs.Chronos_Admin.outputs.BUILD_STATUS_CHRONOS_ADMIN }}</span></li>
+                        <li>Chronos_CW2: <span class='status-${{ needs.Chronos_CW2.outputs.BUILD_STATUS_CHRONOS_CW2 == 'success' && 'success' || 'failure' }}'>${{ needs.Chronos_CW2.outputs.BUILD_STATUS_CHRONOS_CW2 }}</span></li>
+                        <li>ClientWebRESTAPI: <span class='status-${{ needs.ClientWebREST_API.outputs.BUILD_STATUS_CLIENTWEBREST_API == 'success' && 'success' || 'failure' }}'>${{ needs.ClientWebREST_API.outputs.BUILD_STATUS_CLIENTWEBREST_API }}</span></li> 
+                        <li>ComplianceWire_1_0: <span class='status-${{ needs.Compliancewire_1_0.outputs.BUILD_STATUS_COMPLIANCEWIRE_1_0 == 'success' && 'success' || 'failure' }}'>${{ needs.ComplianceWire_1_0.outputs.BUILD_STATUS_COMPLIANCEWIRE_1_0 }}</span></li>
+                        <li>CWAdmin: <span class='status-${{ needs.CWAdmin.outputs.BUILD_STATUS_CWADMIN == 'success' && 'success' || 'failure' }}'>${{ needs.CWAdmin.outputs.BUILD_STATUS_CWADMIN }}</span></li>
+                        <li>CWLearner: <span class='status-${{ needs.CWLearner.outputs.BUILD_STATUS_CWLEARNER == 'success' && 'success' || 'failure' }}'>${{ needs.CWLearner.outputs.BUILD_STATUS_CWLEARNER }}</span></li>
+                        <li>CWWebApi: <span class='status-${{ needs.CWWebApi.outputs.BUILD_STATUS_CWWEBAPI == 'success' && 'success' || 'failure' }}'>${{ needs.CWWebApi.outputs.BUILD_STATUS_CWWEBAPI }}</span></li>
+                        <li>CWWebApi_Router: <span class='status-${{ needs.CWWebApi_Router.outputs.BUILD_STATUS_CWWEBAPI_ROUTER == 'success' && 'success' || 'failure' }}'>${{ needs.CWWebApi_Router.outputs.BUILD_STATUS_CWWEBAPI_ROUTER }}</span></li>
+                        <li>Hyperion: <span class='status-${{ needs.Hyperion.outputs.BUILD_STATUS_HYPERION == 'success' && 'success' || 'failure' }}'>${{ needs.Hyperion.outputs.BUILD_STATUS_HYPERION }}</span></li>
+                        <li>PSTools: <span class='status-${{ needs.PSTools.outputs.BUILD_STATUS_PSTOOLS == 'success' && 'success' || 'failure' }}'>${{ needs.PSTools.outputs.BUILD_STATUS_PSTOOLS }}</span></li>
+                        <li>ReportEngine: <span class='status-${{ needs.ReportEngine.outputs.BUILD_STATUS_REPORTENGINE == 'success' && 'success' || 'failure' }}'>${{ needs.ReportEngine.outputs.BUILD_STATUS_REPORTENGINE }}</span></li>
+                        <li>Zeus: <span class='status-${{ needs.Zeus.outputs.BUILD_STATUS_ZEUS == 'success' && 'success' || 'failure' }}'>${{ needs.Zeus.outputs.BUILD_STATUS_ZEUS }}</span></li>
+                        <li>Robocopy - CWSprintQAMT02: <span class='status-${{ needs.Robocopy_CWSprintQAMT02.outputs.BUILD_STATUS_CWSprintQAMT02 == 'success' && 'success' || 'failure' }}'>${{ needs.Robocopy_CWSprintQAMT02.outputs.BUILD_STATUS_CWSprintQAMT02 }}</span></li>
+                        <li>Robocopy - CWSprintQAWeb02: <span class='status-${{ needs.Robocopy_CWSprintQAWeb02.outputs.BUILD_STATUS_CWSprintQAWeb02 == 'success' && 'success' || 'failure' }}'>${{ needs.Robocopy_CWSprintQAWeb02.outputs.BUILD_STATUS_CWSprintQAWeb02 }}</span></li>
+                      </ul>  
+                    </div> 
+                    <div class='footer'> 
+                      <p>This is an automated message sent from the CI/CD Pipeline.</p>
+                    </div> 
+                  </div> 
+                </body> 
+              </html> 
+          "@ 
+          $smtpServer = "x2.eduneering.com" 
+          $smtpFrom = "rootdrop@eduneering.com" 
+          $smtpTo = @("LST.PRN.DeploymentNotification@ul.com", "EduApps.offshore@marlabs.com", "LST.PRN.OffshoreQA@ul.com") # Use an array for multiple recipients 
+          $smtpPort = "25" 
+          $subject = "SprintQA - CI/CD" 
+
+          Send-MailMessage -SmtpServer $smtpServer -Port $smtpPort -From $smtpFrom -To $smtpTo -Subject $subject -Body $emailBody -BodyAsHtml
+          Write-Host "Email sent successfully."
+
+          

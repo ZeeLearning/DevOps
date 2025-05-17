@@ -1,0 +1,184 @@
+name: Build_Deploy_DB 
+
+on:
+    workflow_dispatch:
+        inputs:
+            repo_name:
+                description: 'Database Name'
+                required: true
+                type: choice
+                options:
+                    - 'Compliancewire DB'
+                    - 'CWWorking DB'
+                    - 'CWHistory DB'
+                    - 'CWMeta DB'
+                    - 'CWLog DB'
+                    - 'Compliancewire Replica DB'
+
+            environment:
+                description: 'Environment'
+                required: true 
+                type: choice
+                options:
+                    - 'INT'
+                    - 'INT2'
+                    - 'QAProd'
+                    - 'NewQA'
+                    - 'SprintQA'
+                    - 'Any'
+                    - 'DEVSprint01'
+                    - 'LT'
+                    - 'Production'
+# Define environment variables that can be used in the workflow. 
+env:
+    REPO_URL: "https://${{ secrets.USER_NAME }}:${{ secrets.PAT_TOKEN }}@github.com/Underwriters-Labs/CW.CWTransactionDBs.git"
+    WORKSPACE_DIRECTORY: ${{ github.workspace }}
+    REPOSITORY: "CW.CWTransactionDBs"
+    PROJECT_NAME: ${{ github.event.inputs.repo_name }}
+
+jobs:
+    # Get the name of self-hosted runner 
+    Get_Self_Hosted_Runner:
+      runs-on: self-hosted 
+      outputs:
+        RUNNER_NAME: ${{ steps.get_runner_name.outputs.runner_name }}
+      steps:
+        - name: Get self-hosted runner name
+          id: get_runner_name
+          run: |
+            echo "Runner Name: ${{ runner.name }}"
+            echo "runner_name=${{ runner.name }}" >> $env:GITHUB_OUTPUT 
+
+    # Clone and checkout the target repo
+    Checkout_Target_Repo:
+        runs-on: ${{ needs.Get_Self_Hosted_Runner.outputs.RUNNER_NAME }}
+        needs: [Get_Self_Hosted_Runner]
+        environment: ${{ github.event.inputs.environment }}
+        outputs:
+            DB_NAME: ${{ steps.get_db_name.outputs.databaseName }}
+        steps:
+            # Get the database name from input 
+            - name: Get database name 
+              id: get_db_name
+              run: |
+                echo "Database Name: ${{ github.event.inputs.repo_name }}"
+                $databaseNameWithDB = '${{ github.event.inputs.repo_name }}'
+                if ($databaseNameWithDB -eq 'Compliancewire Replica DB') {
+                    $databaseName = $databaseNameWithDB -replace ' Replica DB', ''  # Remove ' Replica DB' from the name
+                    echo "Database Name without ' Replica DB': $databaseName"
+                    echo "databaseName=$databaseName" >> $env:GITHUB_OUTPUT
+                } else {
+                    $databaseName = $databaseNameWithDB -replace ' DB', ''  # Remove ' DB' from the name
+                    echo "Database Name without ' DB': $databaseName"
+                    echo "databaseName=$databaseName" >> $env:GITHUB_OUTPUT
+                }
+
+            # Checkout the target repo
+            - name: Check out the target repo 
+              run: |
+                git clone --branch ${{ vars.BRANCH }} ${{ env.REPO_URL}} ${{ env.REPOSITORY }}
+                cd ${{ env.REPOSITORY }}
+                echo "Cloned repository: ${{ env.REPO_NAME }} (branch: ${{ vars.BRANCH }})"
+                git checkout ${{ vars.BRANCH }}
+                echo "Checked out branch: ${{ vars.BRANCH }}"
+                git branch
+                echo ${{ env.WORKSPACE_DIRECTORY }}
+                echo "Environment: ${{ github.event.inputs.Environment }}"
+    
+    Deploy_DB:
+        runs-on: ${{ needs.Get_Self_Hosted_Runner.outputs.RUNNER_NAME }}
+        environment: ${{ github.event.inputs.Environment }}
+        needs: [Get_Self_Hosted_Runner, Checkout_Target_Repo]
+        env:
+            DB_NAME: ${{ needs.Checkout_Target_Repo.outputs.DB_NAME }}
+        steps: 
+            - name: Deploy DB 
+              if: ${{ env.PROJECT_NAME != 'Compliancewire Replica DB' }}
+              shell: cmd
+              run: |
+                echo "###### DB deployment to ${{ vars.DB_TARGET_SERVER }}, ${{ vars.DB_TARGET_PORT }} ###########"
+                
+                ::cd \
+                ::cd Eduneering\DBDeploy${{ github.event.inputs.Environment}}_Git
+                net use j: "\\houtfs03\E$\Eduneering\${{ vars.DB_DEPLOY_FOLDER}}" /persistent:no
+
+                j:
+                ::dir
+                deploy.cmd ${{ env.DB_NAME }} ${{ vars.DB_TARGET_SERVER }} ${{ vars.DB_TARGET_PORT }} ${{ vars.BRANCH }} ${{ secrets.USER_NAME }} ${{ secrets.PAT_TOKEN }}
+                
+                if %ERRORLEVEL% NEQ 0 (
+                  echo Error occurred during deployment. Exit code: %ERRORLEVEL%
+                  exit /b %ERRORLEVEL%
+                )
+
+                net use j: /d /y
+                
+                echo "Environment: ${{ github.event.inputs.Environment }}"
+
+            - name: Deploy Compliancewire Replica DB 
+              if: ${{ env.PROJECT_NAME == 'Compliancewire Replica DB' && github.event.inputs.environment == 'NewQA' }}
+              shell: cmd
+              run: |
+                echo "###### DB deployment to ${{ vars.REPLICA_DB_TARGET_SERVER }}, ${{ vars.REPLICA_DB_TARGET_PORT }} ###########"
+            
+                net use j: "\\houtfs03\E$\Eduneering\${{ vars.REPLICA_DB_DEPLOY_FOLDER }}" /persistent:no
+
+                j:
+                ::dir
+                deploy.cmd ${{ env.DB_NAME }} ${{ vars.REPLICA_DB_TARGET_SERVER }} ${{ vars.REPLICA_DB_TARGET_PORT }} ${{ vars.BRANCH }} ${{ secrets.USER_NAME }} ${{ secrets.PAT_TOKEN }}
+
+                if %ERRORLEVEL% NEQ 0 (
+                  echo Error occurred during deployment. Exit code: %ERRORLEVEL%
+                  exit /b %ERRORLEVEL%
+                )
+
+                net use j: /d /y
+
+                echo "Environment: ${{ github.event.inputs.Environment }}"
+
+    Deployment_Logs:
+        needs: [Get_Self_Hosted_Runner, Checkout_Target_Repo, Deploy_DB]
+        if: ${{ always() }} # Ensure this job runs even if previous jobs fail
+        runs-on: ${{ needs.Get_Self_Hosted_Runner.outputs.RUNNER_NAME }}
+        environment: ${{ github.event.inputs.environment }} 
+        env:
+            DB_NAME: ${{ needs.Checkout_Target_Repo.outputs.DB_NAME}}
+        steps:
+            - name: Generate Deployment Summary 
+              if: ${{ always() }} # Ensure this step runs even if previous steps fail
+              run: | 
+                $summaryFile = "${{ github.workspace }}/deployment_summary.md"
+                "### :rocket: Deployment Summary" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Repository:** ${{ env.REPOSITORY }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Database:** ${{ env.DB_NAME }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Branch:** ${{ vars.BRANCH }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                "- **Environment:** ${{ github.event.inputs.environment }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+                # "- **Build Number:** ${{ vars.BUILD_NUMBER }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
+  
+            - name: Append Deployment Summary to Job Summary
+              if: ${{ always() }} # Ensure this step runs even if previous steps fail
+              run: |
+                $summaryFile = "${{ github.workspace }}/deployment_summary.md"
+                $content = Get-Content $summaryFile
+                $content | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+              
+            - name: Print Deployment Summary 
+              if: ${{ always() }} # Ensure this step runs even if previous steps fail
+              run: Get-Content ${{ github.workspace }}/deployment_summary.md     
+              
+    Clean_Up:
+        needs: [Get_Self_Hosted_Runner, Checkout_Target_Repo, Deploy_DB, Deployment_Logs]
+        if: ${{ always() }} # Ensure this job runs even if previous jobs fail
+        runs-on: ${{ needs.Get_Self_Hosted_Runner.outputs.RUNNER_NAME }}
+        steps:
+            # Clean up resources 
+            - name: Clean up resources
+              run: |
+                echo "Cleaning up resources..."
+                cd ${{ env.WORKSPACE_DIRECTORY }} 
+                # Remove the cloned repository
+                Remove-Item -Path ${{ env.REPOSITORY }} -Recurse -Force
+                # Remove deployment summary file 
+                Remove-Item -Path "deployment_summary.md" -Recurse -Force
+                echo "All resources cleaned up successfully."
+                

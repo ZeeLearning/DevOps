@@ -1,0 +1,264 @@
+# This workflows triggers "Build_Deploy_DB" workflow for DEVSprint01 environment.
+
+name: DEVSprint01 - CI/CD Pipeline 
+
+on: 
+  # GitHub handles cron schedules in **UTC (Coordinated Universal Time)**. 
+  # When defining a `cron` schedule in a GitHub Actions workflow, you should always specify the time in UTC.
+  # Make sure it is not overlapping with schedule of other pipelines (Recommendation: atleast 1.5 hours gap)
+  schedule: 
+    - cron: '0 11 * * 5' # 6 AM, every Friday (UTC)
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true 
+        type: choice
+        options:
+          - 'DEVSprint01'
+
+env: 
+  WORKFLOW_FRONTEND_FILE_NAME: "Build_Deploy.yml" # Name of the workflow file to trigger for frontend repos
+  WORKFLOW_DB_FILE_NAME: "Build_Deploy_DB.yml" # Name of the workflow file to trigger for DB repos
+  ROBOCOPY_PATH: "\\\\CWStaging01\\Builds\\RoboCopy\\DEVSprint01" 
+
+jobs:
+  # Checkout the repository
+  Checkout:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+  
+  # Trigger Build/Deploy for CWLog DB
+  CWLog:
+    runs-on: self-hosted
+    needs: [Checkout] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWLOG: ${{ steps.get_build_status_cwlog.outputs.buildStatusCWLog }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CWLog
+        #id: trigger_workflow_aphrodite 
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CWLog DB' -environment 'DEVSprint01' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for CWLog
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwlog 
+        run: |
+          $buildStatusCWLog = '${{ job.status}}'
+          echo "Build Status for CWLog: $buildStatusCWLog"
+          echo "buildStatusCWLog=$buildStatusCWLog" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for CWWorking DB
+  CWWorking:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWWORKING: ${{ steps.get_build_status_cwworking.outputs.buildStatusCWWorking }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CWWorking
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CWWorking DB' -environment 'DEVSprint01' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for CWWorking
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwworking
+        run: |
+          $buildStatusCWWorking = '${{ job.status}}'
+          echo "Build Status for CWWorking: $buildStatusCWWorking"
+          echo "buildStatusCWWorking=$buildStatusCWWorking" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for CWMeta DB
+  CWMeta:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWMETA: ${{ steps.get_build_status_cwmeta.outputs.buildStatusCWMeta }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CWMeta
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CWMeta DB' -environment 'DEVSprint01' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for CWMeta
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwmeta
+        run: |
+          $buildStatusCWMeta = '${{ job.status}}'
+          echo "Build Status for CWMeta: $buildStatusCWMeta"
+          echo "buildStatusCWMeta=$buildStatusCWMeta" >> $env:GITHUB_OUTPUT
+    
+  # Trigger Build/Deploy for CWHitory DB
+  CWHistory:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_CWHISTORY: ${{ steps.get_build_status_cwhistory.outputs.buildStatusCWHistory }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for CWHitory
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'CWHistory DB' -environment 'DEVSprint01' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for CWHistory
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_cwhistory
+        run: |
+          $buildStatusCWHistory = '${{ job.status}}'
+          echo "Build Status for CWHistory: $buildStatusCWHistory"
+          echo "buildStatusCWHistory=$buildStatusCWHistory" >> $env:GITHUB_OUTPUT
+
+  # Trigger Build/Deploy for Compliancewire DB
+  Compliancewire:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory] # Ensure this job runs after the Checkout job 
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_COMPLIANCEWIRE: ${{ steps.get_build_status_compliancewire.outputs.buildStatusCompliancewire }}
+    steps:
+      - name: Trigger Build/Deploy Workflow for Compliancewire
+        run: |
+          echo ${{ github.workspace }}
+          cd ${{ github.workspace }}\Scripts
+
+          .\Trigger_WF_From_GH_API.ps1 -repo_name 'Compliancewire DB' -environment 'DEVSprint01' -workflow_file ${{ env.WORKFLOW_DB_FILE_NAME }}  -pat_token '${{ secrets.PAT_TOKEN }}'
+
+      - name: Capture Build Status for Compliancewire
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_compliancewire
+        run: |
+          $buildStatusCompliancewire = '${{ job.status}}'
+          echo "Build Status for Compliancewire: $buildStatusCompliancewire"
+          echo "buildStatusCompliancewire=$buildStatusCompliancewire" >> $env:GITHUB_OUTPUT
+
+  #Robocopy - INT TO DEVSprint01
+  Robocopy_INTToDEVSprint01:
+    runs-on: self-hosted
+    environment: ${{ github.event.inputs.environment }} 
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if the previous jobs fail
+    outputs:
+        BUILD_STATUS_INTTODEVSPRINT01: ${{ steps.get_build_status_inttodevsprint01.outputs.buildStatusINTToDEVSprint01 }}
+    steps:
+      - name: Robocopy - INTToDEVSprint01
+        run: |
+          ${{ env.ROBOCOPY_PATH}}\RoboCopyINTToDEVSprint01.bat
+
+          $EXIT_CODE = $LASTEXITCODE
+          if ($EXIT_CODE -le 3) {
+            echo "Robocopy completed with exit code $EXIT_CODE (Success or minor issues)."
+            exit 0 # Force a successful exit for GitHub Actions 
+          }
+          else {
+            echo "Robocopy failed with exit code $EXIT_CODE." 
+            exit $EXIT_CODE 
+          }
+
+      - name: Capture Build Status for INT to DEVSprint01
+        if: always() # Ensure this step runs even if the previous steps fail
+        id: get_build_status_inttodevsprint01
+        run: |
+          $buildStatusINTToDEVSprint01 = '${{ job.status}}'
+          echo "Build Status for INTToDEVSprint01: $buildStatusINTToDEVSprint01"
+          echo "buildStatusINTToDEVSprint01=$buildStatusINTToDEVSprint01" >> $env:GITHUB_OUTPUT
+          echo "Environment: ${{ github.event.inputs.environment }}"
+
+  # Email Notification
+  Email_Notification:
+    runs-on: self-hosted
+    needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Robocopy_INTToDEVSprint01] # Ensure this job runs after all previous jobs
+    if: always() # Ensure this job runs even if previous jobs fail
+    steps:
+      - name: Send Email Notification
+        shell: powershell 
+        run: | 
+          $emailBody = @"
+            <html> 
+              <head> 
+                <style> 
+                  body { 
+                    font-family: Arial, sans-serif; 
+                    background-color: #f4f4f4; 
+                    padding: 20px; 
+                  } 
+                  .container { 
+                    background: #ffffff; 
+                    padding: 20px; 
+                    border-radius: 8px; 
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+                    } 
+                  .header { 
+                    background-color: #0078D7; 
+                    color: white; 
+                    padding: 10px; 
+                    font-size: 20px; 
+                    text-align: center; 
+                    border-radius: 8px 8px 0 0; 
+                    } 
+                  .content { 
+                    padding: 15px; 
+                    font-size: 16px; 
+                    color: #333333; 
+                    } 
+                  .footer { 
+                    font-size: 14px; 
+                    color: #777777; 
+                    text-align: center; 
+                    padding-top: 15px; 
+                    } 
+                  .status-success { 
+                    font-weight: bold; 
+                    color: green; 
+                    } 
+                  .status-failure { 
+                    font-weight: bold; 
+                    color: red; 
+                    } 
+                  </style> 
+                </head> 
+                <body> 
+                  <div class='container'> 
+                    <div class='header'>DEVSprint01 - CI/CD Pipeline</div> 
+                    <div class='content'> 
+                      <p>Deployment Summary:</p> 
+                      <ul> 
+                        <li>CWLog DB: <span class='status-${{ needs.CWLog.outputs.BUILD_STATUS_CWLOG == 'success' && 'success' || 'failure' }}'>${{ needs.CWLog.outputs.BUILD_STATUS_CWLOG }}</span></li>                      
+                        <li>CWWorking DB: <span class='status-${{ needs.CWWorking.outputs.BUILD_STATUS_CWWORKING == 'success' && 'success' || 'failure' }}'>${{ needs.CWWorking.outputs.BUILD_STATUS_CWWORKING }}</span></li>
+                        <li>CWMeta DB: <span class='status-${{ needs.CWMeta.outputs.BUILD_STATUS_CWMETA == 'success' && 'success' || 'failure' }}'>${{ needs.CWMeta.outputs.BUILD_STATUS_CWMETA }}</span></li>
+                        <li>CWHistory DB: <span class='status-${{ needs.CWHistory.outputs.BUILD_STATUS_CWHISTORY == 'success' && 'success' || 'failure' }}'>${{ needs.CWHistory.outputs.BUILD_STATUS_CWHISTORY }}</span></li>
+                        <li>Compliancewire DB: <span class='status-${{ needs.Compliancewire.outputs.BUILD_STATUS_COMPLIANCEWIRE == 'success' && 'success' || 'failure' }}'>${{ needs.Compliancewire.outputs.BUILD_STATUS_COMPLIANCEWIRE }}</span></li>
+                        <li>Robocopy - INTToDEVSprint01: <span class='status-${{ needs.Robocopy_INTToDEVSprint01.outputs.BUILD_STATUS_INTTODEVSPRINT01 == 'success' && 'success' || 'failure' }}'>${{ needs.Robocopy_INTToDEVSprint01.outputs.BUILD_STATUS_INTTODEVSPRINT01 }}</span></li>
+                      </ul>  
+                    </div> 
+                    <div class='footer'> 
+                      <p>This is an automated message sent from the CI/CD Pipeline.</p>
+                    </div> 
+                  </div> 
+                </body> 
+              </html> 
+          "@ 
+          $smtpServer = "x2.eduneering.com" 
+          $smtpFrom = "rootdrop@eduneering.com" 
+          $smtpTo = @("LST.PRN.DeploymentNotification@ul.com", "EduApps.offshore@marlabs.com", "LST.PRN.OffshoreQA@ul.com")  # Use an array for multiple recipients 
+          $smtpPort = "25" 
+          $subject = "DEVSprint01 - CI/CD" 
+
+          Send-MailMessage -SmtpServer $smtpServer -Port $smtpPort -From $smtpFrom -To $smtpTo -Subject $subject -Body $emailBody -BodyAsHtml
+          Write-Host "Email sent successfully."
+
+          
