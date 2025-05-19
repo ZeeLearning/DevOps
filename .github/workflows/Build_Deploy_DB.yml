@@ -39,7 +39,7 @@ env:
 jobs:
     # Get the name of self-hosted runner 
     Get_Self_Hosted_Runner:
-      runs-on: self-hosted 
+      runs-on: [HOUTFS_DB]
       outputs:
         RUNNER_NAME: ${{ steps.get_runner_name.outputs.runner_name }}
       steps:
