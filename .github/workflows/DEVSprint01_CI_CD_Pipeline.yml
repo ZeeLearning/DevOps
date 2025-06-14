@@ -25,14 +25,14 @@ env:
 jobs:
   # Checkout the repository
   Checkout:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
   
   # Trigger Build/Deploy for CWLog DB
   CWLog:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -56,7 +56,7 @@ jobs:
 
   # Trigger Build/Deploy for CWWorking DB
   CWWorking:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -79,7 +79,7 @@ jobs:
 
   # Trigger Build/Deploy for CWMeta DB
   CWMeta:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -102,7 +102,7 @@ jobs:
     
   # Trigger Build/Deploy for CWHitory DB
   CWHistory:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -125,7 +125,7 @@ jobs:
 
   # Trigger Build/Deploy for Compliancewire DB
   Compliancewire:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -148,7 +148,7 @@ jobs:
 
   #Robocopy - INT TO DEVSprint01
   Robocopy_INTToDEVSprint01:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     environment: ${{ github.event.inputs.environment }} 
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
@@ -180,7 +180,7 @@ jobs:
 
   # Email Notification
   Email_Notification:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Robocopy_INTToDEVSprint01] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if previous jobs fail
     steps:

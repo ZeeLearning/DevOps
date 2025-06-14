@@ -1,4 +1,4 @@
-name: Build_Deploy_DB 
+name: ZY_Test_Build_Deploy_DB 
 
 on:
     workflow_dispatch:
@@ -111,58 +111,53 @@ jobs:
               shell: cmd
               run: |
                 net use j: "\\CWPrdExtract02\M$\Eduneering\${{ vars.DB_DEPLOY_FOLDER }}" /persistent:no
+    
             - name: Map drive for Non-Production
               if: ${{ github.event.inputs.environment != 'Production' && env.PROJECT_NAME != 'Compliancewire Replica DB' }}
               shell: cmd
               run: |
                 net use j: "\\houtfs03\E$\Eduneering\${{ vars.DB_DEPLOY_FOLDER }}" /persistent:no
+    
             - name: Deploy DB 
               if: ${{ env.PROJECT_NAME != 'Compliancewire Replica DB' }}
               shell: cmd
               run: |
                 echo "###### DB deployment to ${{ vars.DB_TARGET_SERVER }}, ${{ vars.DB_TARGET_PORT }} ###########"
-                
-
                 j:
                 deploy.cmd ${{ env.DB_NAME }} ${{ vars.DB_TARGET_SERVER }} ${{ vars.DB_TARGET_PORT }} ${{ vars.BRANCH }} ${{ secrets.USER_NAME }} ${{ secrets.PAT_TOKEN }}
-                
                 if %ERRORLEVEL% NEQ 0 (
                   echo Error occurred during deployment. Exit code: %ERRORLEVEL%
                   exit /b %ERRORLEVEL%
                 )
-
                 net use j: /delete /y 
-                
-                echo "Environment: ${{ github.event.inputs.Environment }}"
-
+                echo "Environment: ${{ github.event.inputs.environment }}"
+    
             - name: Map drive for Replica Production
               if: ${{ github.event.inputs.environment == 'Production' && env.PROJECT_NAME == 'Compliancewire Replica DB' }}
               shell: cmd
               run: |
                 net use j: "\\CWPrdExtract02\M$\Eduneering\${{ vars.REPLICA_DB_DEPLOY_FOLDER }}" /persistent:no
+    
             - name: Map drive for Replica Non-Production
               if: ${{ github.event.inputs.environment != 'Production' && env.PROJECT_NAME == 'Compliancewire Replica DB' }}
               shell: cmd
               run: |
                 net use j: "\\houtfs03\E$\Eduneering\${{ vars.REPLICA_DB_DEPLOY_FOLDER }}" /persistent:no
+    
             - name: Deploy Compliancewire Replica DB 
               if: ${{ env.PROJECT_NAME == 'Compliancewire Replica DB' && (github.event.inputs.environment == 'NewQA' || github.event.inputs.environment == 'Production') }}
               shell: cmd
               run: |
                 echo "###### DB deployment to ${{ vars.REPLICA_DB_TARGET_SERVER }}, ${{ vars.REPLICA_DB_TARGET_PORT }} ###########"
-            
                 j:
                 deploy.cmd ${{ env.DB_NAME }} ${{ vars.REPLICA_DB_TARGET_SERVER }} ${{ vars.REPLICA_DB_TARGET_PORT }} ${{ vars.BRANCH }} ${{ secrets.USER_NAME }} ${{ secrets.PAT_TOKEN }}
-
                 if %ERRORLEVEL% NEQ 0 (
                   echo Error occurred during deployment. Exit code: %ERRORLEVEL%
                   exit /b %ERRORLEVEL%
                 )
-
                 net use j: /delete /y
-
-                echo "Environment: ${{ github.event.inputs.Environment }}"
-
+                echo "Environment: ${{ github.event.inputs.environment }}"
+   
     Deployment_Logs:
         needs: [Get_Self_Hosted_Runner, Checkout_Target_Repo, Deploy_DB]
         if: ${{ always() }} # Ensure this job runs even if previous jobs fail

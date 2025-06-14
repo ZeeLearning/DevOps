@@ -25,14 +25,14 @@ env:
 jobs:
   # Checkout the repository
   Checkout:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
   
   # Trigger Build/Deploy for CWLog DB
   CWLog:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -56,7 +56,7 @@ jobs:
 
   # Trigger Build/Deploy for CWWorking DB
   CWWorking:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -79,7 +79,7 @@ jobs:
 
   # Trigger Build/Deploy for CWMeta DB
   CWMeta:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -102,7 +102,7 @@ jobs:
     
   # Trigger Build/Deploy for CWHitory DB
   CWHistory:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -125,7 +125,7 @@ jobs:
 
   # Trigger Build/Deploy for Compliancewire DB
   Compliancewire:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -148,7 +148,7 @@ jobs:
 
   # Trigger Build/Deploy for Aphrodite
   Aphrodite:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire] # Ensure this job runs after the Checkout job 
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -172,7 +172,7 @@ jobs:
 
   # Trigger Build/Deploy for Apollo 
   Apollo:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite]
     if: always() # Ensure this job runs even if the previous job fails
     outputs:
@@ -195,7 +195,7 @@ jobs:
 
   # Trigger Build/Deploy for Athena 
   Athena: 
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -218,7 +218,7 @@ jobs:
 
   # Trigger Build/Deploy for Chronos.Admin 
   Chronos_Admin:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -242,7 +242,7 @@ jobs:
 
   # Trigger Build/Deploy for Chronos.CW2 
   Chronos_CW2:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -265,7 +265,7 @@ jobs:
 
   # Trigger Build/Deploy for ClientWebREST_API
   ClientWebREST_API:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -288,7 +288,7 @@ jobs:
     
   # Trigger Build/Deploy for ComplianceWire 1.0 
   ComplianceWire_1_0:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -311,7 +311,7 @@ jobs:
     
   # Trigger Build/Deploy for CWAdmin 
   CWAdmin:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -334,7 +334,7 @@ jobs:
 
   # Trigger Build/Deploy for CWLearner 
   CWLearner:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -358,7 +358,7 @@ jobs:
 
   # Trigger Build/Deploy for CWWebApi 
   CWWebApi:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -381,7 +381,7 @@ jobs:
 
   # Trigger Build/Deploy for CWWebApi Router 
   CWWebApi_Router:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -405,7 +405,7 @@ jobs:
 
   # Trigger Build/Deploy for Hyperion 
   Hyperion:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -428,7 +428,7 @@ jobs:
 
   # Trigger Build/Deploy for PSTools 
   PSTools:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -451,7 +451,7 @@ jobs:
 
   # Trigger Build/Deploy for ReportEngine
   ReportEngine:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -474,7 +474,7 @@ jobs:
   
   # Trigger Build/Deploy for Zeus 
   Zeus:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools, ReportEngine] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
     outputs:
@@ -497,7 +497,7 @@ jobs:
     
   # Robocopy - CWSprintQAMT02
   Robocopy_CWSprintQAMT02:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     environment: ${{ github.event.inputs.environment }}
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools, ReportEngine, Zeus] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
@@ -528,7 +528,7 @@ jobs:
   
   #Robocopy - CWSprintQAWeb02
   Robocopy_CWSprintQAWeb02:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     environment: ${{ github.event.inputs.environment }} 
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools, ReportEngine, Zeus, Robocopy_CWSprintQAMT02] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if the previous jobs fail
@@ -559,7 +559,7 @@ jobs:
 
   # Email Notification
   Email_Notification:
-    runs-on: self-hosted
+    runs-on: [self-hosted, CW_DOWNSTREAM] # Ensure it runs on self-hosted non-prod runners labeled with CW_DOWNSTREAM
     needs: [Checkout, CWLog, CWWorking, CWMeta, CWHistory, Compliancewire, Aphrodite, Apollo, Athena, Chronos_Admin, Chronos_CW2, ClientWebREST_API, ComplianceWire_1_0, CWAdmin, CWLearner, CWWebApi, CWWebApi_Router, Hyperion, PSTools, ReportEngine, Zeus, Robocopy_CWSprintQAMT02, Robocopy_CWSprintQAWeb02] # Ensure this job runs after all previous jobs
     if: always() # Ensure this job runs even if previous jobs fail
     steps:

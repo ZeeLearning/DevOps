@@ -1,4 +1,4 @@
-name: Build_Deploy
+name: ZY_Test_Build_Deploy
 
 on:
   workflow_dispatch:
@@ -175,7 +175,7 @@ jobs:
               if: ${{ env.REPO_NAME == 'CW.Aphrodite' }}
               run: |
                 echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/WebAPI" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="${{ vars.DEPLOY_USER }}" /p:password="${{ secrets.DEPLOY_PASSWORD }}" /p:OutDir="${{ env.OUTPUT_DIRECTORY }}"
+                msbuild123 ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="ComplianceWire/WebAPI" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="${{ vars.DEPLOY_USER }}" /p:password="${{ secrets.DEPLOY_PASSWORD }}" /p:OutDir="${{ env.OUTPUT_DIRECTORY }}"
 
             # Apollo
             - name: Build and Deploy Apollo
@@ -339,7 +339,7 @@ jobs:
               if: ${{ env.REPO_NAME == 'CW.PSTools' }}
               run: |
                 echo "Building solution: ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME}}"
-                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION_PSTOOLS }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="PSStudio" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="${{ vars.DEPLOY_USER }}" /p:password="${{ secrets.DEPLOY_PASSWORD }}" /p:OutDir="${{ env.OUTPUT_DIRECTORY }}"
+                msbuild ${{ env.REPO_NAME }}\${{ env.SOLUTION_NAME }} /p:Configuration=${{ vars.CONFIGURATION }} /p:Platform="${{ env.PLATFORM }}" /p:MsDeployServiceUrl=${{ vars.WEB_SERVER }}.alpha.eduh.co:8172/msdeploy.axd /p:DeployIisAppPath="PSStudio" /p:DeployOnBuild=True /p:IsAutoBuild=True /p:DeployTarget=MsDeployPublish /p:CreatePackageOnPublish=True /p:AllowUntrustedCertificate=True /p:username="${{ vars.DEPLOY_USER }}" /p:password="${{ secrets.DEPLOY_PASSWORD }}" /p:OutDir="${{ env.OUTPUT_DIRECTORY }}"
 
             # ReportEngine
             - name: Build and Deploy ReportEngine 
@@ -369,15 +369,11 @@ jobs:
                 "### :rocket: Deployment Summary" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
                 "- **Repository:** ${{ github.event.inputs.repo_name }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
                 "- **Branch:** ${{ vars.BRANCH }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
-                if ("${{ env.REPO_NAME }}" -eq "CW.PSTools") {
-                  "- **Configuration:** ${{ vars.CONFIGURATION_PSTOOLS }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
-                } 
-                if ("${{ env.REPO_NAME }}" -ne "CW.PSTools") {
-                  "- **Configuration:** ${{ 
-                    github.event.inputs.repo_name == 'CW.Chronos-Admin' && vars.CHRONOS_ADMIN || 
-                    github.event.inputs.repo_name == 'CW.CWWebApi-Router' && vars.WEBAPI_ROUTER || 
-                    vars.CONFIGURATION 
-                  }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append }
+                "- **Configuration:** ${{ 
+                  github.event.inputs.repo_name == 'CW.Chronos-Admin' && vars.CHRONOS_ADMIN || 
+                  github.event.inputs.repo_name == 'CW.CWWebApi-Router' && vars.WEBAPI_ROUTER || 
+                  vars.CONFIGURATION 
+                }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
                 "- **Environment:** ${{ github.event.inputs.environment }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
                 "- **Commit ID:** ${{ needs.Checkout_Target_Repo.outputs.COMMIT_ID }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append
                 "- **Commit Message:** ${{ needs.Checkout_Target_Repo.outputs.COMMIT_MESSAGE }}" | Out-File -FilePath $summaryFile -Encoding utf8 -Append

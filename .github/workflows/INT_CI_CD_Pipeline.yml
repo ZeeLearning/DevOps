@@ -6,8 +6,8 @@ on:
   # GitHub handles cron schedules in **UTC (Coordinated Universal Time)**. 
   # When defining a `cron` schedule in a GitHub Actions workflow, you should always specify the time in UTC.
   # Make sure it is not overlapping with schedule of other pipelines (Recommendation: atleast 1.5 hours gap)
-  schedule: 
-    - cron: '0 1,5,9,13,17,21 * * 1-5' # Every 4 hours (8pm, 12am, 4am, 8am, 12pm, 4pm EST)
+  # schedule: 
+  #   - cron: '0 1,5,9,13,17,21 * * 1-5' # Every 4 hours (8pm, 12am, 4am, 8am, 12pm, 4pm EST)
   workflow_dispatch:
     inputs:
       environment:
